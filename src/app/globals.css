@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f8fb;
+  --foreground: #14211b;
+  --muted: #607169;
+  --line: #dfe6e2;
+  --surface: #ffffff;
+  --accent: #1b6b4b;
+  --accent-strong: #105038;
+  --accent-soft: #e6f3ed;
+  --warning: #9a5a16;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--background); }
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(38, 124, 88, 0.09), transparent 25rem),
+    var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(27, 107, 75, 0.35);
+  outline-offset: 2px;
+}
+
+.shell { min-height: 100vh; }
+.container { width: min(1160px, calc(100% - 2rem)); margin: 0 auto; }
+.card { background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 16px 45px rgba(23, 49, 37, .06); }
+.eyebrow { color: var(--accent); font-size: .76rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.muted { color: var(--muted); }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 42px; padding: .65rem 1rem; border: 0; border-radius: 10px; background: var(--accent); color: white; font-weight: 750; cursor: pointer; transition: 140ms ease; }
+.button:hover { background: var(--accent-strong); transform: translateY(-1px); }
+.button-secondary { background: white; color: var(--foreground); border: 1px solid var(--line); }
+.button-secondary:hover { background: #f8faf9; }
+.pill { display: inline-flex; align-items: center; gap: .4rem; border-radius: 999px; padding: .35rem .65rem; background: var(--accent-soft); color: var(--accent-strong); font-size: .78rem; font-weight: 750; }
+
+@media (max-width: 720px) {
+  .container { width: min(100% - 1.25rem, 1160px); }
+}

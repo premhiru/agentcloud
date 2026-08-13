@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agentcloud
+          POSTGRES_PASSWORD: agentcloud
+          POSTGRES_DB: agentcloud_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U agentcloud"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CI: true
+      DEMO_MODE: true
+      NEXT_PUBLIC_DEMO_MODE: true
+      DATABASE_URL: postgresql://agentcloud:agentcloud@localhost:5432/agentcloud_test
+      APP_BASE_URL: http://127.0.0.1:3000
+      WEBHOOK_SIGNING_SECRET: ci-only-secret-with-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
