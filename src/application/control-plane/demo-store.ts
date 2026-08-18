@@ -12,7 +12,7 @@ export type UiWorkerVersion = { id: string; versionNumber: number; spec: WorkerS
 export type UiRunStep = { sequence: number; type: string; status: string; summary: string; at: string };
 export type UiRun = { id: string; organizationId: string; workerId: string; workerVersionId: string; mode: "dry_run" | "live"; triggerType: "manual" | "schedule" | "webhook"; status: string; createdAt: string; estimatedCostUsd: number; steps: UiRunStep[] };
 export type UiWorker = { id: string; organizationId: string; name: string; status: "DRAFT" | "READY" | "DEPLOYED" | "PAUSED" | "ARCHIVED"; activeVersionId?: string; versions: UiWorkerVersion[]; createdAt: string; updatedAt: string };
-export type UiApproval = { id: string; organizationId: string; workerId: string; runId: string; capabilityId: string; reason: string; preview: Record<string, unknown>; status: "PENDING" | "APPROVED" | "REJECTED"; requestedAt: string };
+export type UiApproval = { id: string; organizationId: string; workerId: string; runId: string; capabilityId: string; reason: string; preview: Record<string, unknown>; requestHash: string; status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED"; requestedAt: string; expiresAt: string; decidedAt?: string; comment?: string };
 
 class DemoControlPlaneStore {
   private workers: UiWorker[] = [];
@@ -123,6 +123,19 @@ class DemoControlPlaneStore {
   listApprovals(context: TenantContext): UiApproval[] {
     this.load();
     return this.approvals.filter((approval) => approval.organizationId === context.organizationExternalId).map((approval) => structuredClone(approval));
+  }
+
+  createApproval(context: TenantContext, input: Omit<UiApproval, "id" | "organizationId" | "status" | "requestedAt">): UiApproval {
+    this.load(); const now = new Date().toISOString();
+    const approval: UiApproval = { ...input, id: randomUUID(), organizationId: context.organizationExternalId, status: "PENDING", requestedAt: now };
+    this.approvals.unshift(approval); this.save(); return structuredClone(approval);
+  }
+
+  decideApproval(context: TenantContext, approvalId: string, decision: "approve" | "reject", comment?: string): UiApproval {
+    this.load(); const approval = this.approvals.find((item) => item.id === approvalId && item.organizationId === context.organizationExternalId);
+    if (!approval) throw new Error("APPROVAL_NOT_FOUND"); if (approval.status !== "PENDING") throw new Error("APPROVAL_ALREADY_DECIDED");
+    if (new Date(approval.expiresAt) <= new Date()) { approval.status = "EXPIRED"; this.save(); throw new Error("APPROVAL_EXPIRED"); }
+    approval.status = decision === "approve" ? "APPROVED" : "REJECTED"; approval.decidedAt = new Date().toISOString(); approval.comment = comment; this.save(); return structuredClone(approval);
   }
 }
 

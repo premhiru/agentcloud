@@ -9,6 +9,7 @@ export type PlannedToolCall = Readonly<{ id: string; capabilityId: string; input
 export interface WorkerModel { plan(input: Readonly<{ spec: WorkerSpec; trigger: RunWorkerPayload["trigger"]; mode: RunWorkerPayload["mode"] }>): Promise<Readonly<{ toolCalls: readonly PlannedToolCall[]; summary: string }>>; }
 export type RunnerStep = Readonly<{ sequence: number; type: "trigger" | "tool" | "dry_run" | "approval" | "complete" | "error"; status: string; summary: string }>;
 export interface RunnerJournal { append(runId: string, step: RunnerStep): Promise<void>; setStatus(runId: string, status: string): Promise<void>; }
+export type RunnerCheckpoint = Readonly<{ remainingToolCalls: readonly PlannedToolCall[]; finalSummary: string; nextSequence: number; usage: BudgetUsage }>;
 
 export class MemoryRunnerJournal implements RunnerJournal {
   readonly steps = new Map<string, RunnerStep[]>(); readonly statuses = new Map<string, string>();
@@ -16,7 +17,7 @@ export class MemoryRunnerJournal implements RunnerJournal {
   async setStatus(runId: string, status: string) { this.statuses.set(runId, status); }
 }
 
-export async function runWorker(input: Readonly<{ payload: RunWorkerPayload; spec: WorkerSpec; model: WorkerModel; integrations: IntegrationAdapter; executions: ToolExecutionRepository; journal: RunnerJournal; initialUsage?: BudgetUsage }>): Promise<{ status: string; summary?: string }> {
+export async function runWorker(input: Readonly<{ payload: RunWorkerPayload; spec: WorkerSpec; model: WorkerModel; integrations: IntegrationAdapter; executions: ToolExecutionRepository; journal: RunnerJournal; initialUsage?: BudgetUsage }>): Promise<{ status: string; summary?: string; checkpoint?: RunnerCheckpoint }> {
   const { payload, spec, journal } = input;
   let sequence = 1;
   let usage: BudgetUsage = input.initialUsage ?? { monthlyCostUsd: 0, runCostUsd: 0, modelCalls: 0, toolCalls: 0 };
@@ -27,7 +28,7 @@ export async function runWorker(input: Readonly<{ payload: RunWorkerPayload; spe
   const plan = await input.model.plan({ spec, trigger: payload.trigger, mode: payload.mode });
   usage = { ...usage, modelCalls: usage.modelCalls + 1 };
 
-  for (const call of plan.toolCalls) {
+  for (const [callIndex, call] of plan.toolCalls.entries()) {
     const budget = checkBudget(spec, usage);
     if (!budget.allowed) { await journal.append(payload.runId, { sequence, type: "error", status: "BUDGET_EXCEEDED", summary: budget.reason }); await journal.setStatus(payload.runId, "BUDGET_EXCEEDED"); return { status: "BUDGET_EXCEEDED" }; }
     const capability = getCapability(call.capabilityId);
@@ -37,7 +38,7 @@ export async function runWorker(input: Readonly<{ payload: RunWorkerPayload; spe
     }
     const execution = await executeGovernedTool({ spec, capabilityId: call.capabilityId, toolInput: call.input, context: { organizationId: payload.organizationId, workerId: payload.workerId, workerVersionId: payload.workerVersionId, runId: payload.runId, modelToolCallId: call.id, mode: payload.mode }, adapter: input.integrations, executions: input.executions });
     usage = { ...usage, toolCalls: usage.toolCalls + 1 };
-    if (execution.status === "WAITING_FOR_APPROVAL") { await journal.append(payload.runId, { sequence, type: "approval", status: execution.status, summary: call.summary }); await journal.setStatus(payload.runId, "WAITING_FOR_APPROVAL"); return { status: "WAITING_FOR_APPROVAL" }; }
+    if (execution.status === "WAITING_FOR_APPROVAL") { await journal.append(payload.runId, { sequence, type: "approval", status: execution.status, summary: call.summary }); await journal.setStatus(payload.runId, "WAITING_FOR_APPROVAL"); return { status: "WAITING_FOR_APPROVAL", checkpoint: { remainingToolCalls: plan.toolCalls.slice(callIndex + 1), finalSummary: plan.summary, nextSequence: sequence + 1, usage } }; }
     if (execution.status === "OUTCOME_UNKNOWN") { await journal.append(payload.runId, { sequence, type: "error", status: execution.status, summary: `${call.summary}: outcome requires review` }); await journal.setStatus(payload.runId, "OUTCOME_UNKNOWN"); return { status: "OUTCOME_UNKNOWN" }; }
     if (execution.status === "FAILED" || execution.status === "DENIED") { await journal.append(payload.runId, { sequence, type: "error", status: execution.status, summary: call.summary }); await journal.setStatus(payload.runId, "FAILED"); return { status: "FAILED" }; }
     await journal.append(payload.runId, { sequence: sequence++, type: execution.status === "DRY_RUN" ? "dry_run" : "tool", status: "SUCCEEDED", summary: execution.status === "DRY_RUN" ? `Would ${call.summary.toLowerCase()}` : call.summary });
@@ -45,4 +46,19 @@ export async function runWorker(input: Readonly<{ payload: RunWorkerPayload; spe
   await journal.append(payload.runId, { sequence, type: "complete", status: "SUCCEEDED", summary: plan.summary });
   await journal.setStatus(payload.runId, "SUCCEEDED");
   return { status: "SUCCEEDED", summary: plan.summary };
+}
+
+export async function resumeWorkerFromCheckpoint(input: Readonly<{ payload: RunWorkerPayload; spec: WorkerSpec; checkpoint: RunnerCheckpoint; integrations: IntegrationAdapter; executions: ToolExecutionRepository; journal: RunnerJournal }>): Promise<{ status: string; summary?: string }> {
+  let sequence = input.checkpoint.nextSequence; let usage = input.checkpoint.usage;
+  await input.journal.setStatus(input.payload.runId, "RUNNING");
+  for (const call of input.checkpoint.remainingToolCalls) {
+    const budget = checkBudget(input.spec, usage);
+    if (!budget.allowed) { await input.journal.setStatus(input.payload.runId, "BUDGET_EXCEEDED"); return { status: "BUDGET_EXCEEDED" }; }
+    const execution = await executeGovernedTool({ spec: input.spec, capabilityId: call.capabilityId, toolInput: call.input, context: { organizationId: input.payload.organizationId, workerId: input.payload.workerId, workerVersionId: input.payload.workerVersionId, runId: input.payload.runId, modelToolCallId: call.id, mode: "live" }, adapter: input.integrations, executions: input.executions });
+    usage = { ...usage, toolCalls: usage.toolCalls + 1 };
+    if (execution.status !== "SUCCEEDED") { await input.journal.append(input.payload.runId, { sequence, type: "error", status: execution.status, summary: call.summary }); await input.journal.setStatus(input.payload.runId, execution.status === "OUTCOME_UNKNOWN" ? "OUTCOME_UNKNOWN" : "FAILED"); return { status: execution.status === "OUTCOME_UNKNOWN" ? "OUTCOME_UNKNOWN" : "FAILED" }; }
+    await input.journal.append(input.payload.runId, { sequence: sequence++, type: "tool", status: "SUCCEEDED", summary: call.summary });
+  }
+  await input.journal.append(input.payload.runId, { sequence, type: "complete", status: "SUCCEEDED", summary: input.checkpoint.finalSummary });
+  await input.journal.setStatus(input.payload.runId, "SUCCEEDED"); return { status: "SUCCEEDED", summary: input.checkpoint.finalSummary };
 }

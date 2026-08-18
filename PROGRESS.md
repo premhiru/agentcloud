@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–3 are complete. Milestone 4 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–4 are complete. Milestone 5 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -22,7 +22,7 @@ Verified official documentation and current published package metadata before im
 - [x] Milestone 1 — AgentCloud Core
 - [x] Milestone 2 — Worker Dashboard
 - [x] Milestone 3 — Runtime
-- [ ] Milestone 4 — Human Approval
+- [x] Milestone 4 — Human Approval
 - [ ] Milestone 5 — Real Integrations
 - [ ] Milestone 6 — MCP
 - [ ] Milestone 7 — Canonical Demo
@@ -99,3 +99,20 @@ Runtime/security evidence includes schedule update without duplication, paused-w
 Blockers: Trigger.dev Cloud deployment is not verifiable without project credentials; the task and runtime code compile, and deterministic runtime coverage is complete.
 
 Next: Milestone 4 durable approval records, expiry/rejection, request re-hashing, exact-run resume, waitpoint integration, dashboard decisions, and notification abstraction.
+
+### Milestone 4 — Human Approval (2026-08-18)
+
+Working: approval repository/waitpoint/notifier abstractions; Trigger.dev waitpoint token adapter; deterministic waitpoints and notifications; canonical request hash binding; recursive secret redaction; expiry, rejection, cancellation-ready statuses, tenant-scoped decisions, comments, and exact payload re-hashing before execution; idempotent approved execution; persisted demo approval decisions; real approval/reject dashboard controls; and a serializable runner checkpoint that resumes the same live run after the approved action without re-running prior CRM side effects or re-invoking the model.
+
+Verification:
+
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed against installed Trigger.dev waitpoint types.
+- `pnpm test` — passed, 16 files / 62 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed.
+
+Approval evidence proves redacted previews, exact-hash binding, cross-tenant denial, expiry, structured rejection, hash-mismatch refusal, duplicate approved execution replay, pause at email, resume from the stored checkpoint, one HubSpot update, one email, one Slack post, and final success.
+
+Blockers: live Trigger.dev Cloud waitpoint behavior cannot be externally verified without credentials; current SDK calls compile and the lifecycle is proven through the same abstractions using deterministic adapters.
+
+Next: Milestone 5 Composio adapter, curated Gmail/HubSpot/Slack mappings, connection lifecycle, and fail-closed production configuration.
