@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–4 are complete. Milestone 5 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–5 are complete. Milestone 6 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -23,7 +23,7 @@ Verified official documentation and current published package metadata before im
 - [x] Milestone 2 — Worker Dashboard
 - [x] Milestone 3 — Runtime
 - [x] Milestone 4 — Human Approval
-- [ ] Milestone 5 — Real Integrations
+- [x] Milestone 5 — Real Integrations
 - [ ] Milestone 6 — MCP
 - [ ] Milestone 7 — Canonical Demo
 - [ ] Milestone 8 — Production Hardening
@@ -116,3 +116,20 @@ Approval evidence proves redacted previews, exact-hash binding, cross-tenant den
 Blockers: live Trigger.dev Cloud waitpoint behavior cannot be externally verified without credentials; current SDK calls compile and the lifecycle is proven through the same abstractions using deterministic adapters.
 
 Next: Milestone 5 Composio adapter, curated Gmail/HubSpot/Slack mappings, connection lifecycle, and fail-closed production configuration.
+
+### Milestone 5 — Real Integrations (2026-08-18)
+
+Working: production `ComposioIntegrationAdapter`; current Composio Core 0.16 direct execution and connected-account link APIs; toolkit versions pinned to the current 20260721_00 Gmail/HubSpot/Slack catalogs; explicit mappings for all nine curated capabilities; tenant-scoped opaque connected-account references; OAuth connection endpoint/UI; expired/revoked/missing connection handling; argument normalization; authentication/rate-limit/transient/unknown-outcome classification; and defense-in-depth dry-run write suppression. Demo and production adapters implement the same interface, with no fallback.
+
+Verification:
+
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed against installed Composio types.
+- `pnpm test` — passed, 17 files / 67 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed.
+
+Integration evidence proves no destructive vendor mappings, tenant-isolated connection lookup, exact opaque account routing, no Composio call during dry-run writes, and ambiguous write failures classified `UNKNOWN_OUTCOME`.
+
+Blockers: no Composio API key or OAuth accounts are available, so real Gmail/HubSpot/Slack consent and calls are not claimed. To verify, set the four documented Composio variables, connect each account from `/integrations`, and run the live acceptance flow. All credential-independent paths are complete.
+
+Next: Milestone 6 authenticated remote MCP v2 endpoint, scopes, lifecycle tools, and protocol client tests.
