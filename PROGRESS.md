@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–6 are complete. Milestone 7 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–7 are complete. Milestone 8 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -25,7 +25,7 @@ Verified official documentation and current published package metadata before im
 - [x] Milestone 4 — Human Approval
 - [x] Milestone 5 — Real Integrations
 - [x] Milestone 6 — MCP
-- [ ] Milestone 7 — Canonical Demo
+- [x] Milestone 7 — Canonical Demo
 - [ ] Milestone 8 — Production Hardening
 
 ## Verification log
@@ -151,3 +151,21 @@ MCP evidence covers missing/invalid bearer rejection, read-only scope denial, fu
 Blockers: production OAuth consent cannot be exercised without Clerk application credentials. The server uses Clerk's current MCP verification and metadata integration; to verify externally, configure the documented Clerk keys, create the OAuth application/scopes, seed the user's AgentCloud organization membership, and connect an MCP client to `/api/mcp`.
 
 Next: Milestone 7 canonical Inbound Sales Worker acceptance path through Gmail read, HubSpot upsert, email approval and execution, Slack notification, and final timeline.
+
+### Milestone 7 — Canonical Demo (2026-08-18)
+
+Working: the canonical Inbound Sales Worker now runs through the same governed runner, policy, budget, integration, approval-hash, checkpoint, and idempotency abstractions used by the production design. Safe tests execute real fake-adapter reads while suppressing every write. Live runs read Gmail fixtures, search and update HubSpot once, pause on the approval-required email, execute the exact approved email once, resume without rerunning earlier work, notify Slack once, and finish with a readable persisted timeline. The dashboard has a working `Run now` control, approval card, and resumed run view. Demo-file writes use atomic replacement so concurrent Next.js processes never observe partially-written JSON.
+
+Verification:
+
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed.
+- `pnpm test` — passed, 19 files / 71 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm test:e2e` — passed, 3 critical Chromium journeys, including live trigger → approval → resumed success.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed, all application/MCP routes built.
+
+Acceptance evidence asserts the exact canonical sequence, zero dry-run writes, one HubSpot update, one approved Gmail send, one Slack post, final `SUCCEEDED`, duplicate approval refusal, and no duplicate email side effect. The MCP protocol test reaches the same lifecycle and proves persistence across a disconnected client.
+
+Blockers: real vendor execution remains unverified because no Composio, Clerk, OpenAI, Trigger.dev, or deployment credentials are available. The complete credential-free acceptance path uses deterministic adapters behind the production interfaces as required.
+
+Next: Milestone 8 production hardening — repository fail-closed behavior, rate limiting, audit and usage surfaces, deployment configuration, complete safety-invariant coverage, documentation, and final verification matrix.

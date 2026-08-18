@@ -9,7 +9,7 @@ test("creates and safely tests a worker", async ({ page }) => {
   await page.getByRole("button", { name: "Test safely" }).click();
   await expect(page).toHaveURL(/\/runs\//);
   await expect(page.getByRole("heading", { name: "What the worker did" })).toBeVisible();
-  await expect(page.getByText(/Would request approval to send an email response/)).toBeVisible();
+  await expect(page.getByText("Would send the prepared email response")).toBeVisible();
 });
 
 test("deploys, pauses, and resumes from real controls", async ({ page }) => {
@@ -21,4 +21,26 @@ test("deploys, pauses, and resumes from real controls", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+});
+
+test("runs the canonical worker through approval and resume", async ({ page }) => {
+  await page.goto("/workers/worker_inbound_sales");
+  const deploy = page.getByRole("button", { name: "Deploy" });
+  if (await deploy.isVisible()) await deploy.click();
+  await page.getByRole("button", { name: "Run now" }).click();
+  await expect(page).toHaveURL(/\/runs\//);
+  const runUrl = page.url();
+  const runId = new URL(runUrl).pathname.split("/").at(-1)!;
+  await expect(page.getByText("Send the prepared email response")).toBeVisible();
+  await expect(page.getByText("WAITING FOR APPROVAL")).toBeVisible();
+
+  await page.goto("/approvals");
+  const approvalCard = page.locator(`[data-run-id="${runId}"]`);
+  await approvalCard.getByRole("button", { name: "Approve exact request" }).click();
+  await expect(approvalCard.getByText("APPROVED")).toBeVisible();
+
+  await page.goto(runUrl);
+  await expect(page.getByText("Sent one approved Gmail response")).toBeVisible();
+  await expect(page.getByText("Post the qualified lead summary to Slack")).toBeVisible();
+  await expect(page.getByText("SUCCEEDED").first()).toBeVisible();
 });

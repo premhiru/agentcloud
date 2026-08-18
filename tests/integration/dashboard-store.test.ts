@@ -18,8 +18,8 @@ describe("tenant-scoped dashboard store", () => {
     expect(demoControlPlane.getWorker(demo, worker.id)).toBeUndefined();
   });
 
-  it("creates an inspectable dry-run timeline", () => {
-    const run = demoControlPlane.createPreviewRun(demo, "worker_inbound_sales");
+  it("creates an inspectable dry-run timeline", async () => {
+    const run = await demoControlPlane.createPreviewRun(demo, "worker_inbound_sales");
     expect(run.mode).toBe("dry_run");
     expect(run.steps.some((step) => step.summary.includes("Would"))).toBe(true);
     expect(demoControlPlane.getRun(other, run.id)).toBeUndefined();

@@ -1,23 +1,34 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import { compileWorker, FakeCompilerModel } from "@/application/compiler/compiler";
 import { hashActionRequest, hashWorkerSpec } from "@/domain/canonical-json";
 import { inboundSalesWorkerSpec } from "@/domain/inbound-sales-worker";
 import type { WorkerSpec } from "@/domain/worker-spec";
+import { FakeIntegrationAdapter } from "@/integrations/fake-integration-adapter";
 import type { TenantContext } from "@/lib/auth/tenant-context";
+import { fakeInboundSalesEmailAction, FakeInboundSalesModel } from "@/runtime/fake-worker-model";
+import { MemoryToolExecutionRepository, type ToolExecutionRecord } from "@/runtime/tool-executor";
+import { MemoryRunnerJournal, resumeWorkerFromCheckpoint, runWorker, type RunnerCheckpoint, type RunnerStep } from "@/runtime/worker-runner";
+import type { RunWorkerPayload } from "@/runtime/types";
 
 export type UiWorkerVersion = { id: string; versionNumber: number; spec: WorkerSpec; specHash: string; createdAt: string; deployedAt?: string };
 export type UiRunStep = { sequence: number; type: string; status: string; summary: string; at: string };
 export type UiRun = { id: string; organizationId: string; workerId: string; workerVersionId: string; mode: "dry_run" | "live"; triggerType: "manual" | "schedule" | "webhook"; status: string; createdAt: string; estimatedCostUsd: number; steps: UiRunStep[] };
 export type UiWorker = { id: string; organizationId: string; name: string; status: "DRAFT" | "READY" | "DEPLOYED" | "PAUSED" | "ARCHIVED"; activeVersionId?: string; versions: UiWorkerVersion[]; createdAt: string; updatedAt: string };
 export type UiApproval = { id: string; organizationId: string; workerId: string; runId: string; capabilityId: string; reason: string; preview: Record<string, unknown>; requestHash: string; status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED"; requestedAt: string; expiresAt: string; decidedAt?: string; comment?: string };
+type DemoContinuation = { runId: string; checkpoint: RunnerCheckpoint; executions: ToolExecutionRecord[] };
+
+function uiSteps(steps: readonly RunnerStep[], at: string): UiRunStep[] {
+  return steps.map((step) => ({ sequence: step.sequence, type: step.type, status: step.status, summary: step.summary, at }));
+}
 
 class DemoControlPlaneStore {
   private workers: UiWorker[] = [];
   private runs: UiRun[] = [];
   private approvals: UiApproval[] = [];
+  private continuations: DemoContinuation[] = [];
   private readonly dataPath = process.env.AGENTCLOUD_DEMO_DATA_PATH ?? resolve(process.cwd(), ".agentcloud", "demo-store.json");
 
   constructor() {
@@ -30,13 +41,15 @@ class DemoControlPlaneStore {
 
   private load(): void {
     if (!existsSync(this.dataPath)) { this.save(); return; }
-    const state = JSON.parse(readFileSync(this.dataPath, "utf8")) as { workers: UiWorker[]; runs: UiRun[]; approvals: UiApproval[] };
-    this.workers = state.workers; this.runs = state.runs; this.approvals = state.approvals;
+    const state = JSON.parse(readFileSync(this.dataPath, "utf8")) as { workers: UiWorker[]; runs: UiRun[]; approvals: UiApproval[]; continuations?: DemoContinuation[] };
+    this.workers = state.workers; this.runs = state.runs; this.approvals = state.approvals; this.continuations = state.continuations ?? [];
   }
 
   private save(): void {
     mkdirSync(dirname(this.dataPath), { recursive: true });
-    writeFileSync(this.dataPath, JSON.stringify({ workers: this.workers, runs: this.runs, approvals: this.approvals }), "utf8");
+    const temporaryPath = `${this.dataPath}.${process.pid}.${randomUUID()}.tmp`;
+    writeFileSync(temporaryPath, JSON.stringify({ workers: this.workers, runs: this.runs, approvals: this.approvals, continuations: this.continuations }), "utf8");
+    renameSync(temporaryPath, this.dataPath);
   }
 
   listWorkers(context: TenantContext): UiWorker[] {
@@ -116,54 +129,52 @@ class DemoControlPlaneStore {
     this.runs.unshift(structuredClone(run)); this.save(); return structuredClone(run);
   }
 
-  createPreviewRun(context: TenantContext, workerId: string): UiRun {
+  async createPreviewRun(context: TenantContext, workerId: string): Promise<UiRun> {
     this.load();
     const worker = this.workers.find((item) => item.id === workerId && item.organizationId === context.organizationExternalId);
     if (!worker) throw new Error("WORKER_NOT_FOUND");
     const version = worker.versions.find((item) => item.id === worker.activeVersionId) ?? worker.versions.at(-1)!;
     const at = new Date().toISOString();
+    const runId = randomUUID();
+    const payload: RunWorkerPayload = { organizationId: context.organizationExternalId, workerId, workerVersionId: version.id, runId, mode: "dry_run", trigger: { type: "manual", payload: { fixture: "inbound-sales" } } };
+    const integrations = new FakeIntegrationAdapter(); const executions = new MemoryToolExecutionRepository(); const journal = new MemoryRunnerJournal();
+    const result = await runWorker({ payload, spec: version.spec, model: new FakeInboundSalesModel(), integrations, executions, journal });
+    if (integrations.writes.length !== 0) throw new Error("DRY_RUN_WRITE_INVARIANT_VIOLATED");
     const run: UiRun = {
-      id: randomUUID(), organizationId: context.organizationExternalId, workerId, workerVersionId: version.id,
-      mode: "dry_run", triggerType: "manual", status: "SUCCEEDED", createdAt: at, estimatedCostUsd: 0.0042,
-      steps: [
-        { sequence: 1, type: "trigger", status: "SUCCEEDED", summary: "Received sample sales enquiry", at },
-        { sequence: 2, type: "tool", status: "SUCCEEDED", summary: "Read Gmail enquiry from maya@northstar.example", at },
-        { sequence: 3, type: "tool", status: "SUCCEEDED", summary: "Searched HubSpot for the sender", at },
-        { sequence: 4, type: "dry_run", status: "SUCCEEDED", summary: "Would create or update the HubSpot contact", at },
-        { sequence: 5, type: "dry_run", status: "SUCCEEDED", summary: "Would request approval to send an email response", at },
-        { sequence: 6, type: "dry_run", status: "SUCCEEDED", summary: "Would post a qualified-lead summary to Slack", at },
-      ],
+      id: runId, organizationId: context.organizationExternalId, workerId, workerVersionId: version.id,
+      mode: "dry_run", triggerType: "manual", status: result.status, createdAt: at, estimatedCostUsd: 0.0042,
+      steps: uiSteps(journal.steps.get(runId) ?? [], at),
     };
     this.runs.unshift(run);
     this.save();
     return structuredClone(run);
   }
 
-  createLiveRun(context: TenantContext, workerId: string): UiRun {
+  async createLiveRun(context: TenantContext, workerId: string): Promise<UiRun> {
     this.load();
     const worker = this.workers.find((item) => item.id === workerId && item.organizationId === context.organizationExternalId);
     if (!worker) throw new Error("WORKER_NOT_FOUND");
     if (worker.status !== "DEPLOYED" || !worker.activeVersionId) throw new Error("WORKER_NOT_DEPLOYED");
+    const version = worker.versions.find((item) => item.id === worker.activeVersionId);
+    if (!version) throw new Error("WORKER_VERSION_NOT_FOUND");
     const at = new Date().toISOString();
+    const runId = randomUUID();
+    const payload: RunWorkerPayload = { organizationId: context.organizationExternalId, workerId, workerVersionId: version.id, runId, mode: "live", trigger: { type: "manual", payload: { fixture: "inbound-sales" } } };
+    const integrations = new FakeIntegrationAdapter(); const executions = new MemoryToolExecutionRepository(); const journal = new MemoryRunnerJournal();
+    const result = await runWorker({ payload, spec: version.spec, model: new FakeInboundSalesModel(), integrations, executions, journal });
+    if (result.status !== "WAITING_FOR_APPROVAL" || !result.checkpoint) throw new Error("CANONICAL_APPROVAL_BOUNDARY_NOT_REACHED");
     const run: UiRun = {
-      id: randomUUID(), organizationId: context.organizationExternalId, workerId, workerVersionId: worker.activeVersionId,
-      mode: "live", triggerType: "manual", status: "WAITING_FOR_APPROVAL", createdAt: at, estimatedCostUsd: 0.0031,
-      steps: [
-        { sequence: 1, type: "trigger", status: "SUCCEEDED", summary: "Received inbound sales enquiry", at },
-        { sequence: 2, type: "tool", status: "SUCCEEDED", summary: "Read Gmail enquiry from maya@northstar.example", at },
-        { sequence: 3, type: "tool", status: "SUCCEEDED", summary: "Searched HubSpot for the sender", at },
-        { sequence: 4, type: "tool", status: "SUCCEEDED", summary: "Upserted one HubSpot contact", at },
-        { sequence: 5, type: "approval", status: "PENDING", summary: "Approval required before sending the external email", at },
-      ],
+      id: runId, organizationId: context.organizationExternalId, workerId, workerVersionId: worker.activeVersionId,
+      mode: "live", triggerType: "manual", status: result.status, createdAt: at, estimatedCostUsd: 0.0031,
+      steps: uiSteps(journal.steps.get(runId) ?? [], at),
     };
-    const email = { to: "maya@northstar.example", subject: "Re: Product enquiry", body: "Thanks for reaching out. We would be glad to help." };
     const approval: UiApproval = {
       id: randomUUID(), organizationId: context.organizationExternalId, workerId, runId: run.id,
-      capabilityId: "gmail.send_email", reason: "External email requires human approval", preview: email,
-      requestHash: hashActionRequest(email), status: "PENDING", requestedAt: at,
+      capabilityId: fakeInboundSalesEmailAction.capabilityId, reason: "External email requires human approval", preview: structuredClone(fakeInboundSalesEmailAction.input),
+      requestHash: hashActionRequest({ capability: fakeInboundSalesEmailAction.capabilityId, input: fakeInboundSalesEmailAction.input }), status: "PENDING", requestedAt: at,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
-    this.runs.unshift(run); this.approvals.unshift(approval); this.save();
+    this.runs.unshift(run); this.approvals.unshift(approval); this.continuations.push({ runId, checkpoint: result.checkpoint, executions: executions.snapshot() }); this.save();
     return structuredClone(run);
   }
 
@@ -191,7 +202,7 @@ class DemoControlPlaneStore {
     this.approvals.unshift(approval); this.save(); return structuredClone(approval);
   }
 
-  decideApproval(context: TenantContext, approvalId: string, decision: "approve" | "reject", comment?: string): UiApproval {
+  async decideApproval(context: TenantContext, approvalId: string, decision: "approve" | "reject", comment?: string): Promise<UiApproval> {
     this.load(); const approval = this.approvals.find((item) => item.id === approvalId && item.organizationId === context.organizationExternalId);
     if (!approval) throw new Error("APPROVAL_NOT_FOUND"); if (approval.status !== "PENDING") throw new Error("APPROVAL_ALREADY_DECIDED");
     if (new Date(approval.expiresAt) <= new Date()) { approval.status = "EXPIRED"; this.save(); throw new Error("APPROVAL_EXPIRED"); }
@@ -199,18 +210,34 @@ class DemoControlPlaneStore {
     approval.status = decision === "approve" ? "APPROVED" : "REJECTED"; approval.decidedAt = decidedAt; approval.comment = comment;
     const run = this.runs.find((item) => item.id === approval.runId && item.organizationId === context.organizationExternalId);
     if (!run || run.status !== "WAITING_FOR_APPROVAL") throw new Error("RUN_NOT_WAITING_FOR_APPROVAL");
-    const approvalStep = run.steps.find((step) => step.type === "approval" && step.status === "PENDING");
+    const approvalStep = run.steps.find((step) => step.type === "approval" && ["PENDING", "WAITING_FOR_APPROVAL"].includes(step.status));
     if (approvalStep) { approvalStep.status = approval.status; approvalStep.summary = decision === "approve" ? "External email action approved" : "External email action rejected"; }
     if (decision === "approve") {
-      run.steps.push(
-        { sequence: run.steps.length + 1, type: "tool", status: "SUCCEEDED", summary: "Sent one approved Gmail response", at: decidedAt },
-        { sequence: run.steps.length + 2, type: "tool", status: "SUCCEEDED", summary: "Posted qualified-lead summary to Slack", at: decidedAt },
-      );
-      run.status = "SUCCEEDED"; run.estimatedCostUsd = 0.0048;
+      const continuation = this.continuations.find((item) => item.runId === run.id);
+      const worker = this.workers.find((item) => item.id === run.workerId && item.organizationId === context.organizationExternalId);
+      const version = worker?.versions.find((item) => item.id === run.workerVersionId);
+      if (!continuation || !version) throw new Error("RUN_CONTINUATION_NOT_FOUND");
+      const executions = new MemoryToolExecutionRepository(continuation.executions); const integrations = new FakeIntegrationAdapter();
+      const key = `${run.id}:${fakeInboundSalesEmailAction.id}`; const waiting = await executions.get(key);
+      const exactHash = hashActionRequest({ capability: fakeInboundSalesEmailAction.capabilityId, input: fakeInboundSalesEmailAction.input });
+      if (!waiting || waiting.status !== "WAITING_FOR_APPROVAL" || waiting.requestHash !== approval.requestHash || exactHash !== approval.requestHash) throw new Error("APPROVAL_REQUEST_HASH_MISMATCH");
+      const emailResult = await integrations.executeCapability(fakeInboundSalesEmailAction.capabilityId, fakeInboundSalesEmailAction.input, { organizationId: context.organizationExternalId, workerId: run.workerId, workerVersionId: run.workerVersionId, runId: run.id, modelToolCallId: fakeInboundSalesEmailAction.id, mode: "live" });
+      const emailStatus = emailResult.ok ? "SUCCEEDED" : emailResult.classification === "UNKNOWN_OUTCOME" ? "OUTCOME_UNKNOWN" : "FAILED";
+      await executions.save({ ...waiting, status: emailStatus, result: emailResult });
+      run.steps.push({ sequence: continuation.checkpoint.nextSequence, type: "tool", status: emailStatus, summary: emailStatus === "SUCCEEDED" ? "Sent one approved Gmail response" : fakeInboundSalesEmailAction.summary, at: decidedAt });
+      if (emailStatus === "SUCCEEDED") {
+        const journal = new MemoryRunnerJournal();
+        const payload: RunWorkerPayload = { organizationId: context.organizationExternalId, workerId: run.workerId, workerVersionId: run.workerVersionId, runId: run.id, mode: "live", trigger: { type: run.triggerType, payload: { fixture: "inbound-sales" } } };
+        const checkpoint = { ...continuation.checkpoint, nextSequence: continuation.checkpoint.nextSequence + 1 };
+        const resumed = await resumeWorkerFromCheckpoint({ payload, spec: version.spec, checkpoint, integrations, executions, journal });
+        run.steps.push(...uiSteps(journal.steps.get(run.id) ?? [], decidedAt)); run.status = resumed.status; run.estimatedCostUsd = 0.0048;
+      } else run.status = emailStatus;
+      continuation.executions = executions.snapshot();
     } else {
       run.steps.push({ sequence: run.steps.length + 1, type: "approval", status: "REJECTED", summary: "Run stopped because the action was rejected", at: decidedAt });
       run.status = "CANCELLED";
     }
+    this.continuations = this.continuations.filter((item) => item.runId !== run.id);
     this.save(); return structuredClone(approval);
   }
 }

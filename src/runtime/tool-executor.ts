@@ -17,12 +17,16 @@ export interface ToolExecutionRepository {
 
 export class MemoryToolExecutionRepository implements ToolExecutionRepository {
   private readonly records = new Map<string, ToolExecutionRecord>();
+  constructor(records: readonly ToolExecutionRecord[] = []) {
+    for (const record of records) this.records.set(record.key, structuredClone(record));
+  }
   async get(key: string) { return this.records.get(key); }
   async save(record: ToolExecutionRecord) {
     const current = this.records.get(record.key);
     if (current && current.requestHash !== record.requestHash) throw new Error("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST");
     this.records.set(record.key, structuredClone(record));
   }
+  snapshot(): ToolExecutionRecord[] { return [...this.records.values()].map((record) => structuredClone(record)); }
 }
 
 export async function executeGovernedTool(input: Readonly<{ spec: WorkerSpec; capabilityId: string; toolInput: unknown; context: ExecutionContext; adapter: IntegrationAdapter; executions: ToolExecutionRepository; executionsToday?: number }>): Promise<ToolExecutionRecord> {
