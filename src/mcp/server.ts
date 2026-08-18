@@ -6,6 +6,7 @@ import type { AuthInfo } from "@modelcontextprotocol/server";
 
 import type { TenantContext } from "@/lib/auth/tenant-context";
 import { isDemoMode } from "@/lib/env";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { executeMcpTool, mcpToolScopes, type McpToolName } from "./tool-service";
 
 const empty = z.object({}).strict(); const workerId = z.object({ workerId: z.string().min(1) }).strict(); const approvalId = z.object({ approvalId: z.string().min(1), comment: z.string().max(500).optional() }).strict();
@@ -34,7 +35,9 @@ export const rawMcpHandler = createMcpHandler((server) => {
       try {
         const info = ctx.http?.authInfo;
         if (!info?.scopes.includes(mcpToolScopes[name])) throw new Error(`MCP_SCOPE_REQUIRED:${mcpToolScopes[name]}`);
-        const output = await executeMcpTool(name, input as Record<string, unknown>, tenantFromAuth(info));
+        const tenant = tenantFromAuth(info);
+        await enforceRateLimit(tenant, `mcp:${name}`, 120);
+        const output = await executeMcpTool(name, input as Record<string, unknown>, tenant);
         return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
       }
       catch (error) { const code = error instanceof Error ? error.message : "INTERNAL_ERROR"; return { isError: true, content: [{ type: "text", text: JSON.stringify({ code }) }] }; }

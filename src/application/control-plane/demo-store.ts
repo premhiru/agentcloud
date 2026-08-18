@@ -18,6 +18,8 @@ export type UiRunStep = { sequence: number; type: string; status: string; summar
 export type UiRun = { id: string; organizationId: string; workerId: string; workerVersionId: string; mode: "dry_run" | "live"; triggerType: "manual" | "schedule" | "webhook"; status: string; createdAt: string; estimatedCostUsd: number; steps: UiRunStep[] };
 export type UiWorker = { id: string; organizationId: string; name: string; status: "DRAFT" | "READY" | "DEPLOYED" | "PAUSED" | "ARCHIVED"; activeVersionId?: string; versions: UiWorkerVersion[]; createdAt: string; updatedAt: string };
 export type UiApproval = { id: string; organizationId: string; workerId: string; runId: string; capabilityId: string; reason: string; preview: Record<string, unknown>; requestHash: string; status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED"; requestedAt: string; expiresAt: string; decidedAt?: string; comment?: string };
+export type UiAuditEvent = { id: string; organizationId: string; actorType: "user" | "worker" | "system" | "mcp"; actorId: string; action: string; targetType: string; targetId: string; metadata: Record<string, unknown>; createdAt: string };
+export type UiConnection = { provider: "gmail" | "hubspot" | "slack"; status: "CONNECTED" | "EXPIRED" | "REVOKED" | "ERROR"; displayName: string };
 type DemoContinuation = { runId: string; checkpoint: RunnerCheckpoint; executions: ToolExecutionRecord[] };
 
 function uiSteps(steps: readonly RunnerStep[], at: string): UiRunStep[] {
@@ -29,6 +31,7 @@ class DemoControlPlaneStore {
   private runs: UiRun[] = [];
   private approvals: UiApproval[] = [];
   private continuations: DemoContinuation[] = [];
+  private auditEvents: UiAuditEvent[] = [];
   private readonly dataPath = process.env.AGENTCLOUD_DEMO_DATA_PATH ?? resolve(process.cwd(), ".agentcloud", "demo-store.json");
 
   constructor() {
@@ -41,15 +44,28 @@ class DemoControlPlaneStore {
 
   private load(): void {
     if (!existsSync(this.dataPath)) { this.save(); return; }
-    const state = JSON.parse(readFileSync(this.dataPath, "utf8")) as { workers: UiWorker[]; runs: UiRun[]; approvals: UiApproval[]; continuations?: DemoContinuation[] };
-    this.workers = state.workers; this.runs = state.runs; this.approvals = state.approvals; this.continuations = state.continuations ?? [];
+    const state = JSON.parse(readFileSync(this.dataPath, "utf8")) as { workers: UiWorker[]; runs: UiRun[]; approvals: UiApproval[]; continuations?: DemoContinuation[]; auditEvents?: UiAuditEvent[] };
+    this.workers = state.workers; this.runs = state.runs; this.approvals = state.approvals; this.continuations = state.continuations ?? []; this.auditEvents = state.auditEvents ?? [];
   }
 
   private save(): void {
     mkdirSync(dirname(this.dataPath), { recursive: true });
     const temporaryPath = `${this.dataPath}.${process.pid}.${randomUUID()}.tmp`;
-    writeFileSync(temporaryPath, JSON.stringify({ workers: this.workers, runs: this.runs, approvals: this.approvals, continuations: this.continuations }), "utf8");
+    writeFileSync(temporaryPath, JSON.stringify({ workers: this.workers, runs: this.runs, approvals: this.approvals, continuations: this.continuations, auditEvents: this.auditEvents }), "utf8");
     renameSync(temporaryPath, this.dataPath);
+  }
+
+  private audit(context: TenantContext, action: string, targetType: string, targetId: string, metadata: Record<string, unknown> = {}): void {
+    this.auditEvents.unshift({ id: randomUUID(), organizationId: context.organizationExternalId, actorType: context.source === "mcp" ? "mcp" : "user", actorId: context.userExternalId, action, targetType, targetId, metadata: structuredClone(metadata), createdAt: new Date().toISOString() });
+  }
+
+  listAuditEvents(context: TenantContext): UiAuditEvent[] {
+    this.load(); return this.auditEvents.filter((event) => event.organizationId === context.organizationExternalId).map((event) => structuredClone(event));
+  }
+
+  listConnections(context: TenantContext): UiConnection[] {
+    void context;
+    return ["gmail", "hubspot", "slack"].map((provider) => ({ provider: provider as UiConnection["provider"], status: "CONNECTED", displayName: `Demo ${provider}` }));
   }
 
   listWorkers(context: TenantContext): UiWorker[] {
@@ -70,6 +86,7 @@ class DemoControlPlaneStore {
     const version: UiWorkerVersion = { id: randomUUID(), versionNumber: 1, spec: compilation.spec, specHash: hashWorkerSpec(compilation.spec), createdAt: now };
     const worker: UiWorker = { id: randomUUID(), organizationId: context.organizationExternalId, name: compilation.spec.identity.name, status: "READY", versions: [version], createdAt: now, updatedAt: now };
     this.workers.unshift(worker);
+    this.audit(context, "worker.created", "worker", worker.id, { versionId: version.id });
     this.save();
     return structuredClone(worker);
   }
@@ -89,6 +106,7 @@ class DemoControlPlaneStore {
       createdAt: now,
     });
     worker.updatedAt = now;
+    this.audit(context, "worker.version_created", "worker", worker.id, { versionId: worker.versions.at(-1)!.id });
     this.save();
     return structuredClone(worker);
   }
@@ -106,6 +124,7 @@ class DemoControlPlaneStore {
     else if (action === "rollback" && versionId && worker.versions.some((version) => version.id === versionId)) { worker.activeVersionId = versionId; worker.status = "DEPLOYED"; }
     else throw new Error("INVALID_STATE_TRANSITION");
     worker.updatedAt = new Date().toISOString();
+    this.audit(context, `worker.${action}`, "worker", worker.id, { versionId: worker.activeVersionId });
     this.save();
     return structuredClone(worker);
   }
@@ -146,6 +165,7 @@ class DemoControlPlaneStore {
       steps: uiSteps(journal.steps.get(runId) ?? [], at),
     };
     this.runs.unshift(run);
+    this.audit(context, "run.dry_run_completed", "run", run.id, { workerId, status: run.status });
     this.save();
     return structuredClone(run);
   }
@@ -174,7 +194,8 @@ class DemoControlPlaneStore {
       requestHash: hashActionRequest({ capability: fakeInboundSalesEmailAction.capabilityId, input: fakeInboundSalesEmailAction.input }), status: "PENDING", requestedAt: at,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
-    this.runs.unshift(run); this.approvals.unshift(approval); this.continuations.push({ runId, checkpoint: result.checkpoint, executions: executions.snapshot() }); this.save();
+    this.runs.unshift(run); this.approvals.unshift(approval); this.continuations.push({ runId, checkpoint: result.checkpoint, executions: executions.snapshot() });
+    this.audit(context, "run.started", "run", run.id, { workerId, status: run.status }); this.audit(context, "approval.requested", "approval", approval.id, { runId }); this.save();
     return structuredClone(run);
   }
 
@@ -187,6 +208,7 @@ class DemoControlPlaneStore {
     run.status = "CANCELLED";
     run.steps.push({ sequence: run.steps.length + 1, type: "run", status: "CANCELLED", summary: "Run cancelled by an authorized user", at });
     for (const approval of this.approvals.filter((item) => item.runId === run.id && item.status === "PENDING")) approval.status = "CANCELLED";
+    this.audit(context, "run.cancelled", "run", run.id);
     this.save();
     return structuredClone(run);
   }
@@ -238,6 +260,7 @@ class DemoControlPlaneStore {
       run.status = "CANCELLED";
     }
     this.continuations = this.continuations.filter((item) => item.runId !== run.id);
+    this.audit(context, decision === "approve" ? "approval.approved" : "approval.rejected", "approval", approval.id, { runId: run.id, finalRunStatus: run.status });
     this.save(); return structuredClone(approval);
   }
 }

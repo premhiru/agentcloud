@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–7 are complete. Milestone 8 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–8 are complete. The full Definition of Done in `PLAN.md` is satisfied for the credential-independent MVP. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -26,7 +26,7 @@ Verified official documentation and current published package metadata before im
 - [x] Milestone 5 — Real Integrations
 - [x] Milestone 6 — MCP
 - [x] Milestone 7 — Canonical Demo
-- [ ] Milestone 8 — Production Hardening
+- [x] Milestone 8 — Production Hardening
 
 ## Verification log
 
@@ -169,3 +169,27 @@ Acceptance evidence asserts the exact canonical sequence, zero dry-run writes, o
 Blockers: real vendor execution remains unverified because no Composio, Clerk, OpenAI, Trigger.dev, or deployment credentials are available. The complete credential-free acceptance path uses deterministic adapters behind the production interfaces as required.
 
 Next: Milestone 8 production hardening — repository fail-closed behavior, rate limiting, audit and usage surfaces, deployment configuration, complete safety-invariant coverage, documentation, and final verification matrix.
+
+### Milestone 8 — Production Hardening (2026-08-18)
+
+Working: explicit production control-plane selection with no demo fallback; PostgreSQL-backed workers, immutable versions, runs, approvals, audit, usage, connections, runner journals, idempotent tool execution, and atomic distributed rate limits; Clerk organization/user membership synchronization; AI SDK/OpenAI compiler and worker adapters; Trigger.dev manual, imperative schedule, pause/resume/cancel, and durable waitpoint execution; version-pinned scheduled dispatch; signed, size-limited, rate-limited, deduplicated webhook ingestion; complete Composio connection callback validation; production error persistence; monthly/per-run cost enforcement; actual dashboard counts/activity/connection state; route loading/error states; version creation/deploy-latest/rollback controls; security headers; Vercel and Trigger.dev configuration; CI browser coverage; and complete deployment/operator documentation.
+
+Verification:
+
+- `pnpm db:generate` — passed; 17 tables, no schema drift or missing migration.
+- Embedded PostgreSQL migration verification — passed; all committed migrations applied and all 17 durable tables exist.
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed.
+- `pnpm test:integration` — passed, 9 files / 29 tests.
+- `pnpm test:security` — passed, 1 file / 14 Product Safety Invariant tests.
+- `pnpm test:mcp` — passed, 1 file / 3 authenticated protocol lifecycle tests.
+- `pnpm test` — passed, 23 files / 89 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed; optimized Next.js build includes all UI, API, MCP, OAuth metadata, integration callback, version, and webhook routes.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm test:e2e` — passed, 4 Chromium journeys: create/safe test; deploy/pause/resume; live approval/resume; create version/deploy latest/rollback.
+- Browser visual QA — passed at desktop and 390 px: no horizontal page overflow, no console errors, accessible controls, and responsive navigation.
+
+Safety/reliability evidence includes default-deny authority, compiler self-grant refusal, deeply frozen WorkerSpecs during model calls, unknown capability denial, mandatory policy gating, exact-hash approval resume, zero dry-run writes, cross-tenant worker/run/approval/connection denial, secret redaction, MCP output secret exclusion, prompt-injection non-authority, one side effect per run/tool-call key, fail-safe unknown outcomes, immutable deployed specs, version-pinned live runs, HMAC webhook validation, and duplicate webhook/side-effect suppression.
+
+Credential-dependent external verification remains intentionally unclaimed: no Clerk, OpenAI, Composio, Trigger.dev Cloud, Neon, or Vercel credentials are available. `DEPLOYMENT.md` records the exact provisioning, migration, task deployment, OAuth callback, smoke-test, and rollback steps. All independent implementation and deterministic acceptance paths are complete.
+
+Next: operator credential provisioning and external smoke verification using `DEPLOYMENT.md`; no additional MVP code work is required.

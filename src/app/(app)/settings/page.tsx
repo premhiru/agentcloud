@@ -1,3 +1,9 @@
-export default function SettingsPage() {
-  return <div className="mx-auto max-w-4xl"><p className="eyebrow">Settings</p><h1 className="mt-2 text-3xl font-black">Workspace controls</h1><div className="card mt-8 divide-y divide-[var(--line)]"><section className="p-6"><p className="text-sm font-extrabold">Workspace</p><p className="muted mt-2 text-sm">Northstar Demo · Owner access</p></section><section className="p-6"><p className="text-sm font-extrabold">Safety posture</p><p className="muted mt-2 text-sm">Default deny · Approval request expiry enabled · External writes are idempotent</p></section><section className="p-6"><p className="text-sm font-extrabold">Runtime</p><p className="muted mt-2 text-sm">Deterministic demo runtime. Configure Trigger.dev credentials to enable the production adapter.</p></section></div></div>;
+import { requireTenantContext } from "@/lib/auth/tenant-context";
+import { isDemoMode } from "@/lib/env";
+
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const context = await requireTenantContext(); const demo = isDemoMode();
+  return <div className="mx-auto max-w-4xl"><p className="eyebrow">Settings</p><h1 className="mt-2 text-3xl font-black">Workspace controls</h1><div className="card mt-8 divide-y divide-[var(--line)]"><section className="p-6"><p className="text-sm font-extrabold">Workspace</p><p className="muted mt-2 break-all text-sm">{context.organizationExternalId} · {context.role} access</p></section><section className="p-6"><p className="text-sm font-extrabold">Safety posture</p><p className="muted mt-2 text-sm">Default deny · Approval request expiry enabled · External writes are idempotent</p></section><section className="p-6"><p className="text-sm font-extrabold">Runtime</p><p className="muted mt-2 text-sm">{demo ? "Deterministic credential-free demo runtime." : "Trigger.dev durable runtime with PostgreSQL state and Composio integrations."}</p></section></div></div>;
 }

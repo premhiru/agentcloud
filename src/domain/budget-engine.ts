@@ -9,6 +9,9 @@ export type BudgetUsage = Readonly<{
 
 export type BudgetDecision = { allowed: true } | { allowed: false; code: "BUDGET_EXCEEDED"; reason: string };
 
+export const MODEL_CALL_ESTIMATE_USD = 0.003;
+export const TOOL_CALL_ESTIMATE_USD = 0.0001;
+
 export function checkBudget(spec: WorkerSpec, usage: BudgetUsage): BudgetDecision {
   if (usage.monthlyCostUsd >= spec.budget.monthlyUsd) return { allowed: false, code: "BUDGET_EXCEEDED", reason: "Monthly budget exhausted" };
   if (usage.runCostUsd >= spec.budget.perRunUsd) return { allowed: false, code: "BUDGET_EXCEEDED", reason: "Per-run budget exhausted" };

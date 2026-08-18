@@ -38,6 +38,8 @@ export async function requireTenantContext(): Promise<TenantContext> {
   if (!session.orgId) throw new OrganizationRequiredError("Choose or create an organization");
 
   const role = session.orgRole === "org:admin" ? "owner" : "member";
+  const { syncTenantMembership } = await import("./sync-tenant");
+  await syncTenantMembership({ clerkOrganizationId: session.orgId, clerkUserId: session.userId, role });
   return {
     organizationExternalId: session.orgId,
     userExternalId: session.userId,

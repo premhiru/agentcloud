@@ -6,7 +6,7 @@ export type WorkerStatus = "DRAFT" | "READY" | "DEPLOYED" | "PAUSED" | "ARCHIVED
 export type WorkerVersion = Readonly<{ id: string; versionNumber: number; spec: WorkerSpec; specHash: string; createdAt: Date; deployedAt?: Date }>;
 export type WorkerAggregate = Readonly<{ id: string; status: WorkerStatus; activeVersionId?: string; versions: readonly WorkerVersion[] }>;
 
-function deepFreeze<T>(value: T): T {
+export function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     Object.freeze(value);
     for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);

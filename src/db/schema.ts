@@ -51,6 +51,7 @@ export const connectionStatusEnum = pgEnum("connection_status", [
 ]);
 export const toolExecutionStatusEnum = pgEnum("tool_execution_status", [
   "PENDING",
+  "WAITING_FOR_APPROVAL",
   "SUCCEEDED",
   "FAILED",
   "DENIED",
@@ -335,4 +336,18 @@ export const runtimeDeployments = pgTable(
     updatedAt: updatedAt(),
   },
   (table) => [uniqueIndex("runtime_deployments_worker_uidx").on(table.organizationId, table.workerId)],
+);
+
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    id: id(),
+    organizationId: organizationId().references(() => organizations.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    operation: text("operation").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").default(1).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex("rate_limit_bucket_uidx").on(table.organizationId, table.subject, table.operation, table.windowStart)],
 );

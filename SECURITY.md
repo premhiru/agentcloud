@@ -21,7 +21,7 @@ Tenant-owned tables include `organization_id`. Repository APIs accept structured
 
 ## External content
 
-Email, CRM data, Slack content, and webhook bodies are untrusted data. Runner system instructions state this boundary, but the hard guarantee is structural: content cannot add registered tools, capability grants, authority rules, or budgets. Webhooks are secret-bearing URLs, accept signature verification where configured, have size limits, reject dangerous keys, and deduplicate events.
+Email, CRM data, Slack content, and webhook bodies are untrusted data. Runner system instructions state this boundary, but the hard guarantee is structural: content cannot add registered tools, capability grants, authority rules, or budgets. Webhooks use a worker-specific URL plus mandatory HMAC-SHA256 verification with the server-held signing secret. They have a 256 KiB limit, reject dangerous prototype-shaped keys, rate-limit per persisted trigger, redact common secret-shaped fields before run/audit persistence, and transactionally deduplicate idempotency keys. The organization is derived from the enabled trigger row.
 
 ## Secrets and logs
 
@@ -34,6 +34,10 @@ The integration adapter classifies each capability as read, write, or external c
 ## Approvals
 
 Approval previews are redacted. Approval records expire. Decisions require tenant membership, and approval execution verifies status, expiry, run/version identity, capability, and request hash. Rejections return structured tool results so a worker can conclude safely.
+
+## Abuse controls and browser policy
+
+Mutating web routes and MCP tools use organization/user/operation rate-limit buckets; production buckets are atomic PostgreSQL upserts, while deterministic tests use an in-process bucket. Signed webhooks have a separate per-trigger bucket. Responses include a bounded retry interval and never expose stack traces. The application emits clickjacking, MIME-sniffing, referrer, browser-capability, and opener-isolation headers.
 
 ## Reporting vulnerabilities
 

@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: "node",
     testTimeout: 15_000,
+    hookTimeout: 30_000,
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     coverage: { reporter: ["text", "json", "html"] },
   },

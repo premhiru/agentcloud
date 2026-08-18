@@ -18,7 +18,7 @@ export const composioToolMap = {
 
 export type ConnectionReference = Readonly<{ organizationId: string; provider: IntegrationProvider; connectedAccountId: string; status: "CONNECTED" | "EXPIRED" | "REVOKED" | "ERROR"; displayName: string }>;
 export interface ConnectionReferenceRepository { get(input: Readonly<{ organizationId: string; provider: IntegrationProvider }>): Promise<ConnectionReference | undefined>; }
-export interface ComposioGateway { execute(slug: string, body: { userId: string; connectedAccountId: string; arguments: Record<string, unknown> }): Promise<{ successful?: boolean; data?: unknown; error?: unknown; logId?: string }>; link(userId: string, authConfigId: string, options: { callbackUrl: string }): Promise<{ id: string; redirectUrl?: string | null }>; }
+export interface ComposioGateway { execute(slug: string, body: { userId: string; connectedAccountId: string; arguments: Record<string, unknown> }): Promise<{ successful?: boolean; data?: unknown; error?: unknown; logId?: string }>; link(userId: string, authConfigId: string, options: { callbackUrl: string }): Promise<{ id: string; redirectUrl?: string | null }>; get?(id: string): Promise<{ id: string; status: string; toolkit: { slug: string }; alias?: string | null }>; }
 
 export function createComposioGateway(): ComposioGateway {
   const apiKey = process.env.COMPOSIO_API_KEY;
@@ -27,6 +27,7 @@ export function createComposioGateway(): ComposioGateway {
   return {
     execute: (slug, body) => composio.tools.execute(slug, body),
     link: (userId, authConfigId, options) => composio.connectedAccounts.link(userId, authConfigId, options),
+    get: (id) => composio.connectedAccounts.get(id),
   };
 }
 

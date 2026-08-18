@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Workflow } from "lucide-react";
 
-export default function DashboardPage() {
+import { getControlPlane } from "@/application/control-plane";
+import { requireTenantContext } from "@/lib/auth/tenant-context";
+
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const context = await requireTenantContext(); const controlPlane = await getControlPlane(); const workers = await controlPlane.listWorkers(context); const runs = await controlPlane.listRuns(context); const approvals = await controlPlane.listApprovals(context);
+  const values = [workers.filter((worker) => worker.status === "DEPLOYED").length, runs.length, approvals.filter((approval) => approval.status === "PENDING").length];
   return (
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -9,7 +16,7 @@ export default function DashboardPage() {
         <Link href="/workers/new" className="button">Create worker <ArrowRight size={16} /></Link>
       </div>
       <section className="mt-8 grid gap-4 md:grid-cols-3">
-        {[["Active workers", "0", Workflow], ["Runs this month", "0", ArrowRight], ["Pending approvals", "0", ShieldCheck]].map(([label, value, Icon]) => {
+        {[["Active workers", values[0], Workflow], ["Runs", values[1], ArrowRight], ["Pending approvals", values[2], ShieldCheck]].map(([label, value, Icon]) => {
           const ItemIcon = Icon as typeof Workflow;
           return <div key={String(label)} className="card p-5"><div className="flex items-center justify-between"><p className="muted text-sm font-semibold">{String(label)}</p><ItemIcon size={18} className="text-[var(--accent)]" /></div><p className="mt-5 text-3xl font-black">{String(value)}</p></div>;
         })}

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."tool_execution_status" ADD VALUE 'WAITING_FOR_APPROVAL' BEFORE 'SUCCEEDED';

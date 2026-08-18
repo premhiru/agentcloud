@@ -10,7 +10,7 @@ export const compileWorkerInputSchema = z.object({
   connectedIntegrations: z.array(z.enum(["gmail", "hubspot", "slack"])).default([]),
 }).strict();
 
-const modelProposalSchema = z.object({
+export const modelProposalSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().min(1).max(500),
   instructions: z.array(z.string().trim().min(1).max(2_000)).min(1).max(50),

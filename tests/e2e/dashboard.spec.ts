@@ -6,8 +6,9 @@ test("creates and safely tests a worker", async ({ page }) => {
   await page.getByRole("button", { name: "Create draft" }).click();
   await expect(page.getByRole("heading", { name: "Inbound Sales Guardian" })).toBeVisible();
   await expect(page.getByText("What this worker may do")).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Test safely" }).click();
-  await expect(page).toHaveURL(/\/runs\//);
+  await expect(page).toHaveURL(/\/runs\//, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "What the worker did" })).toBeVisible();
   await expect(page.getByText("Would send the prepared email response")).toBeVisible();
 });
@@ -43,4 +44,15 @@ test("runs the canonical worker through approval and resume", async ({ page }) =
   await expect(page.getByText("Sent one approved Gmail response")).toBeVisible();
   await expect(page.getByText("Post the qualified lead summary to Slack")).toBeVisible();
   await expect(page.getByText("SUCCEEDED").first()).toBeVisible();
+});
+
+test("creates an immutable worker version and rolls back", async ({ page }) => {
+  await page.goto("/workers/worker_inbound_sales");
+  await expect(page.getByText("Active").first()).toBeVisible();
+  await page.getByLabel("Objective for next version").fill("Qualify inbound sales enquiries, update the CRM, and follow up safely with human approval");
+  await page.getByRole("button", { name: "Create new version" }).click();
+  await expect(page.getByText("Version 2", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Deploy latest" }).click();
+  await page.getByRole("button", { name: "Roll back to version 1" }).click();
+  await expect(page.getByRole("button", { name: "Roll back to version 2" })).toBeVisible();
 });

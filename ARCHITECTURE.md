@@ -50,6 +50,8 @@ Clerk supplies web identity, organizations, and OAuth tokens for the remote MCP 
 
 AgentCloud stores runtime IDs in `runtime_deployments`, `worker_triggers`, and `runs`, not in WorkerSpec. The generic `run-worker` task receives only tenant/worker/version/run references and trigger data. It reloads immutable state and rechecks lifecycle, policy, budgets, and connections before executing.
 
+Imperative schedules are synchronized by a stable worker/trigger key, so a new version updates the existing Trigger.dev schedule instead of duplicating it. The scheduled task resolves the persisted trigger, checks that it is enabled and still points at the active deployed version, creates a uniquely correlated run, and invokes the same worker task path. Signed webhook endpoints resolve their tenant from the persisted trigger—not from caller input—and create runs through that same path.
+
 ## Approval durability
 
 When a policy decision requires approval, the run enters `WAITING_FOR_APPROVAL`, an approval row is persisted, and Trigger.dev waits on a token. Approval/rejection completes that token. The resumed execution re-hashes the normalized request before any side effect.
@@ -57,3 +59,5 @@ When a policy decision requires approval, the run enters `WAITING_FOR_APPROVAL`,
 ## Demo mode
 
 `DEMO_MODE=true` selects deterministic model, integration, and runtime adapters through the same production interfaces. It provides the complete lifecycle without vendor credentials. Production never falls back to demo behavior when a credential is absent.
+
+With `DEMO_MODE=false`, the control plane is PostgreSQL-backed, compilation/execution use the OpenAI adapter, integrations use Composio, and runs use Trigger.dev. Missing configuration fails closed at the relevant boundary. The demo JSON store is never imported as a production fallback.
