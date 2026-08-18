@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–2 are complete. Milestone 3 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–3 are complete. Milestone 4 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -21,7 +21,7 @@ Verified official documentation and current published package metadata before im
 - [x] Milestone 0 — Foundation
 - [x] Milestone 1 — AgentCloud Core
 - [x] Milestone 2 — Worker Dashboard
-- [ ] Milestone 3 — Runtime
+- [x] Milestone 3 — Runtime
 - [ ] Milestone 4 — Human Approval
 - [ ] Milestone 5 — Real Integrations
 - [ ] Milestone 6 — MCP
@@ -82,3 +82,20 @@ The initial browser run exposed process-local demo state; it was corrected to sh
 Blockers: none. The dashboard currently uses the deterministic demo control-plane implementation; Milestone 3 replaces lifecycle/run orchestration with the runtime/repository contracts while retaining this credential-free path.
 
 Next: Milestone 3 runtime adapter, durable runner, triggers, timelines, cancellation, and write idempotency.
+
+### Milestone 3 — Runtime (2026-08-18)
+
+Working: vendor-neutral `WorkerRuntime`; deterministic fake runtime; Trigger.dev v4 runtime using current task, run-cancellation, imperative schedule create/update/activate/deactivate APIs; stable schedule keys; reference-only durable task payloads; generic budget/connection/policy-wrapped worker runner; manual/schedule/webhook payload support; persisted readable demo timelines; cancellation; duplicate-webhook handling; side-effect uniqueness by run/tool-call ID; successful result replay; changed-request rejection; and fail-safe `OUTCOME_UNKNOWN` handling.
+
+Verification:
+
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed against installed Trigger.dev types.
+- `pnpm test` — passed, 14 files / 56 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed.
+
+Runtime/security evidence includes schedule update without duplication, paused-worker trigger rejection, cancellation, tenant-isolated webhook keys, changed webhook payload rejection, duplicate live-write replay with exactly one adapter call, no adapter call for dry-run writes, unknown-outcome non-retry, complete dry-run reasoning path, and live execution stopping at the approval boundary.
+
+Blockers: Trigger.dev Cloud deployment is not verifiable without project credentials; the task and runtime code compile, and deterministic runtime coverage is complete.
+
+Next: Milestone 4 durable approval records, expiry/rejection, request re-hashing, exact-run resume, waitpoint integration, dashboard decisions, and notification abstraction.

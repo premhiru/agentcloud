@@ -89,6 +89,14 @@ class DemoControlPlaneStore {
     return run ? structuredClone(run) : undefined;
   }
 
+  recordRun(context: TenantContext, run: UiRun): UiRun {
+    this.load();
+    if (run.organizationId !== context.organizationExternalId) throw new Error("TENANT_ACCESS_DENIED");
+    const existing = this.runs.find((item) => item.id === run.id && item.organizationId === context.organizationExternalId);
+    if (existing) return structuredClone(existing);
+    this.runs.unshift(structuredClone(run)); this.save(); return structuredClone(run);
+  }
+
   createPreviewRun(context: TenantContext, workerId: string): UiRun {
     this.load();
     const worker = this.workers.find((item) => item.id === workerId && item.organizationId === context.organizationExternalId);
