@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–5 are complete. Milestone 6 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–6 are complete. Milestone 7 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -24,7 +24,7 @@ Verified official documentation and current published package metadata before im
 - [x] Milestone 3 — Runtime
 - [x] Milestone 4 — Human Approval
 - [x] Milestone 5 — Real Integrations
-- [ ] Milestone 6 — MCP
+- [x] Milestone 6 — MCP
 - [ ] Milestone 7 — Canonical Demo
 - [ ] Milestone 8 — Production Hardening
 
@@ -133,3 +133,21 @@ Integration evidence proves no destructive vendor mappings, tenant-isolated conn
 Blockers: no Composio API key or OAuth accounts are available, so real Gmail/HubSpot/Slack consent and calls are not claimed. To verify, set the four documented Composio variables, connect each account from `/integrations`, and run the live acceptance flow. All credential-independent paths are complete.
 
 Next: Milestone 6 authenticated remote MCP v2 endpoint, scopes, lifecycle tools, and protocol client tests.
+
+### Milestone 6 — MCP (2026-08-18)
+
+Working: authenticated Streamable HTTP MCP endpoint on `/api/mcp`; RFC 9728 protected-resource metadata; Clerk OAuth token verification in production and explicit deterministic demo tokens in demo mode; organization selection derived from AgentCloud membership rather than caller parameters; per-tool enforcement of the seven documented OAuth scopes; all required lifecycle tools, including cancellation and usage; immutable version creation; live-run approval pause/resume; and a real MCP SDK client acceptance test. A second MCP client can reconnect after the initiating client closes and retrieve the persisted worker and run.
+
+Verification:
+
+- `pnpm test:mcp` — passed, 1 file / 3 protocol tests.
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed against MCP server/client v2 and Clerk MCP types.
+- `pnpm test` — passed, 18 files / 70 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed; authenticated MCP and OAuth metadata routes built as dynamic endpoints.
+
+MCP evidence covers missing/invalid bearer rejection, read-only scope denial, full tool discovery, create/inspect/update/version/test/deploy/trigger/get-run/list-and-approve/pause/resume/rollback, exactly one approved email effect in the persisted timeline, and state recovery from a new disconnected client session.
+
+Blockers: production OAuth consent cannot be exercised without Clerk application credentials. The server uses Clerk's current MCP verification and metadata integration; to verify externally, configure the documented Clerk keys, create the OAuth application/scopes, seed the user's AgentCloud organization membership, and connect an MCP client to `/api/mcp`.
+
+Next: Milestone 7 canonical Inbound Sales Worker acceptance path through Gmail read, HubSpot upsert, email approval and execution, Slack notification, and final timeline.
