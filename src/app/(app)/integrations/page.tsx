@@ -1,0 +1,7 @@
+import { CheckCircle2, Mail, MessageSquare, Users } from "lucide-react";
+
+const integrations = [["Gmail", "Read enquiries and send approved replies", Mail], ["HubSpot", "Find and update contacts and notes", Users], ["Slack", "Post qualified-lead summaries", MessageSquare]] as const;
+
+export default function IntegrationsPage() {
+  return <div className="mx-auto max-w-5xl"><p className="eyebrow">Integrations</p><h1 className="mt-2 text-3xl font-black">Connected tools</h1><p className="muted mt-2">OAuth credentials stay with the connection provider. AgentCloud stores only opaque account references.</p><div className="mt-8 grid gap-4 md:grid-cols-3">{integrations.map(([name, description, Icon]) => <article key={name} className="card p-6"><div className="flex items-start justify-between"><div className="rounded-xl bg-[var(--accent-soft)] p-3 text-[var(--accent)]"><Icon size={23} /></div><span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700"><CheckCircle2 size={15} />Connected</span></div><h2 className="mt-5 text-lg font-black">Demo {name}</h2><p className="muted mt-2 text-sm leading-6">{description}</p><p className="mt-5 text-xs font-bold text-[var(--muted)]">Deterministic demo adapter</p></article>)}</div><div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Demo mode:</strong> these connections use realistic fixtures and cannot reach external services. Production never falls back to them automatically.</div></div>;
+}

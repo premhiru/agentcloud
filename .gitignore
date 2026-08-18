@@ -11,3 +11,4 @@ test-results/
 .trigger/
 .vercel/
 dist/
+.agentcloud/

@@ -1,0 +1,23 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Check, ChevronRight, Clock, PlugZap, ShieldCheck } from "lucide-react";
+
+import { demoControlPlane } from "@/application/control-plane/demo-store";
+import { StatusBadge } from "@/components/status-badge";
+import { WorkerActions } from "@/components/worker-actions";
+import { getCapability } from "@/domain/tool-registry";
+import { requireTenantContext } from "@/lib/auth/tenant-context";
+
+export const dynamic = "force-dynamic";
+
+export default async function WorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params; const context = await requireTenantContext(); const worker = demoControlPlane.getWorker(context, id); if (!worker) notFound();
+  const version = worker.versions.find((item) => item.id === worker.activeVersionId) ?? worker.versions.at(-1)!;
+  const runs = demoControlPlane.listRuns(context, id);
+  return <div className="mx-auto max-w-6xl"><div className="flex flex-wrap items-start justify-between gap-5"><div><div className="flex items-center gap-3"><p className="eyebrow">Worker · v{version.versionNumber}</p><StatusBadge status={worker.status} /></div><h1 className="mt-3 text-4xl font-black tracking-tight">{worker.name}</h1><p className="muted mt-3 max-w-3xl leading-7">{version.spec.objective}</p></div><WorkerActions workerId={worker.id} status={worker.status} /></div>
+    <section className="mt-8 grid gap-5 lg:grid-cols-[1.15fr_.85fr]"><div className="space-y-5"><div className="card p-6"><p className="eyebrow">Overview</p><div className="mt-5 grid gap-5 sm:grid-cols-2">{[[Clock, "Trigger", version.spec.triggers.map((trigger) => trigger.type).join(" + ")], [PlugZap, "Connections", "Gmail · HubSpot · Slack"], [ShieldCheck, "Default authority", "Deny"], [Check, "Per-run budget", `$${version.spec.budget.perRunUsd.toFixed(2)}`]].map(([Icon, label, value]) => { const ItemIcon = Icon as typeof Clock; return <div key={String(label)} className="flex gap-3"><ItemIcon size={19} className="mt-1 text-[var(--accent)]" /><div><p className="muted text-xs font-bold uppercase tracking-wider">{String(label)}</p><p className="mt-1 font-extrabold capitalize">{String(value)}</p></div></div>; })}</div></div>
+      <div className="card p-6"><p className="eyebrow">Authority</p><h2 className="mt-2 text-xl font-black">What this worker may do</h2><div className="mt-5 divide-y divide-[var(--line)]">{version.spec.authority.rules.map((rule) => <div key={rule.capability} className="flex items-center justify-between gap-4 py-3"><div><p className="font-bold">{getCapability(rule.capability)?.description ?? rule.capability}</p><p className="muted mt-1 text-xs">{rule.capability}</p></div><StatusBadge status={rule.effect === "allow" ? "ALLOWED" : rule.effect === "require_approval" ? "PENDING" : "DENIED"} /></div>)}</div></div>
+      <div className="card p-6"><div className="flex items-center justify-between"><div><p className="eyebrow">Runs</p><h2 className="mt-2 text-xl font-black">Recent activity</h2></div></div>{runs.length ? <div className="mt-4 divide-y divide-[var(--line)]">{runs.map((run) => <Link key={run.id} href={`/runs/${run.id}`} className="flex items-center justify-between py-4"><div><p className="font-bold">{run.mode === "dry_run" ? "Safe test" : "Live run"}</p><p className="muted mt-1 text-sm">{new Date(run.createdAt).toLocaleString()}</p></div><div className="flex items-center gap-3"><StatusBadge status={run.status} /><ChevronRight size={16} /></div></Link>)}</div> : <p className="muted mt-5 rounded-xl bg-slate-50 p-5 text-sm">No runs yet. Use “Test safely” to inspect the complete reasoning path without writes.</p>}</div></div>
+      <aside className="space-y-5"><div className="card p-6"><p className="eyebrow">Version history</p><div className="mt-4 space-y-3">{[...worker.versions].reverse().map((item) => <div key={item.id} className="rounded-xl border border-[var(--line)] p-4"><div className="flex items-center justify-between"><p className="font-extrabold">Version {item.versionNumber}</p>{worker.activeVersionId === item.id && <span className="pill">Active</span>}</div><p className="muted mt-2 text-xs">{item.specHash.slice(0, 12)} · {new Date(item.createdAt).toLocaleDateString()}</p></div>)}</div></div>
+      <div className="card p-6"><p className="eyebrow">Safety budget</p><p className="mt-3 text-3xl font-black">${version.spec.budget.monthlyUsd}<span className="muted text-sm font-semibold"> / month</span></p><div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-0 bg-[var(--accent)]" /></div><p className="muted mt-2 text-xs">$0.00 used in demo mode</p></div></aside></section></div>;
+}

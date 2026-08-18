@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestones 0–1 are complete. Milestone 2 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–2 are complete. Milestone 3 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -20,7 +20,7 @@ Verified official documentation and current published package metadata before im
 
 - [x] Milestone 0 — Foundation
 - [x] Milestone 1 — AgentCloud Core
-- [ ] Milestone 2 — Worker Dashboard
+- [x] Milestone 2 — Worker Dashboard
 - [ ] Milestone 3 — Runtime
 - [ ] Milestone 4 — Human Approval
 - [ ] Milestone 5 — Real Integrations
@@ -64,3 +64,21 @@ Security evidence includes unknown-tool denial, ungranted-tool denial, invalid i
 Blockers: none. Real model and Composio calls remain intentionally deferred behind the verified interfaces until their integration milestones.
 
 Next: Milestone 2 worker dashboard and its wired create/detail/version/run/integration/approval journeys.
+
+### Milestone 2 — Worker Dashboard (2026-08-18)
+
+Working: polished responsive navigation; worker list and outcome-first creation; compiled worker detail with overview, readable authority, budgets, connection summary, runs, immutable version hashes, and status; side-effect-free test control and readable run timeline; deploy/pause/resume controls; approvals empty state; connected demo integration cards; settings and audit surfaces. Every visible primary control performs a real action. Demo state is shared durably across Next.js server processes rather than being tied to the initiating request.
+
+Verification:
+
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed.
+- `pnpm test` — passed, 10 files / 42 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm test:e2e` — passed, 2 critical Chromium journeys (create → inspect → safe test; deploy → pause → resume).
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed, 13 routes built.
+
+The initial browser run exposed process-local demo state; it was corrected to shared durable demo storage and the flows then passed. Cross-tenant dashboard store access remains covered.
+
+Blockers: none. The dashboard currently uses the deterministic demo control-plane implementation; Milestone 3 replaces lifecycle/run orchestration with the runtime/repository contracts while retaining this credential-free path.
+
+Next: Milestone 3 runtime adapter, durable runner, triggers, timelines, cancellation, and write idempotency.
