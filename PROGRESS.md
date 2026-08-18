@@ -2,7 +2,7 @@
 
 ## Current status
 
-Milestone 0 is complete. Milestone 1 is in progress. The repository was initially empty apart from `PLAN.md`.
+Milestones 0–1 are complete. Milestone 2 is in progress. The repository was initially empty apart from `PLAN.md`.
 
 ## SDK verification (2026-08-13)
 
@@ -19,7 +19,7 @@ Verified official documentation and current published package metadata before im
 ## Milestones
 
 - [x] Milestone 0 — Foundation
-- [ ] Milestone 1 — AgentCloud Core
+- [x] Milestone 1 — AgentCloud Core
 - [ ] Milestone 2 — Worker Dashboard
 - [ ] Milestone 3 — Runtime
 - [ ] Milestone 4 — Human Approval
@@ -47,3 +47,20 @@ Verification:
 Blockers: none. Production Clerk, Neon, Trigger.dev, Composio, OpenAI, and Vercel credentials are not present; demo/CI paths remain fully implementable and production adapters will fail closed when unconfigured.
 
 Next: Milestone 1 domain core — WorkerSpec, registry, compiler, policy, budget, hashing, fake model and integrations.
+
+### Milestone 1 — AgentCloud Core (2026-08-18)
+
+Working: strict versioned WorkerSpec 1.0; deeply immutable version objects and deploy/pause/resume/rollback transitions; curated nine-capability Gmail/HubSpot/Slack registry; compiler constrained to registered capabilities; canonical spec/action hashing; deterministic default-deny policy engine with approval and domain/daily constraints; budget checks and cost estimates; deterministic compiler model; and a fake integration adapter with realistic fixtures and hard dry-run write suppression.
+
+Verification:
+
+- `pnpm lint` — passed, zero warnings.
+- `pnpm typecheck` — passed.
+- `pnpm test` — passed, 9 files / 39 tests.
+- `DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true pnpm build` — passed.
+
+Security evidence includes unknown-tool denial, ungranted-tool denial, invalid input denial, default-deny behavior, no secret-shaped WorkerSpec extras, unsupported compiler capability reporting, canonical approval hash sensitivity, immutable nested version data, and zero fake-adapter writes in dry-run mode.
+
+Blockers: none. Real model and Composio calls remain intentionally deferred behind the verified interfaces until their integration milestones.
+
+Next: Milestone 2 worker dashboard and its wired create/detail/version/run/integration/approval journeys.
