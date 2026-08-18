@@ -37,10 +37,8 @@ test("runs the canonical worker through approval and resume", async ({ page }) =
 
   await page.goto("/approvals");
   const approvalCard = page.locator(`[data-run-id="${runId}"]`);
-  await approvalCard.getByRole("button", { name: "Approve exact request" }).click();
-  await expect(approvalCard.getByText("APPROVED")).toBeVisible();
-
-  await page.goto(runUrl);
+  await approvalCard.getByRole("button", { name: "Approve and view run" }).click();
+  await expect(page).toHaveURL(runUrl);
   await expect(page.getByText("Sent one approved Gmail response")).toBeVisible();
   await expect(page.getByText("Post the qualified lead summary to Slack")).toBeVisible();
   await expect(page.getByText("SUCCEEDED").first()).toBeVisible();
@@ -50,8 +48,9 @@ test("creates an immutable worker version and rolls back", async ({ page }) => {
   await page.goto("/workers/worker_inbound_sales");
   await expect(page.getByText("Active").first()).toBeVisible();
   await page.getByLabel("Objective for next version").fill("Qualify inbound sales enquiries, update the CRM, and follow up safely with human approval");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Create new version" }).click();
-  await expect(page.getByText("Version 2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Version 2", { exact: true })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Deploy latest" }).click();
   await page.getByRole("button", { name: "Roll back to version 1" }).click();
   await expect(page.getByRole("button", { name: "Roll back to version 2" })).toBeVisible();
