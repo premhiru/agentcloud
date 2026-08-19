@@ -193,3 +193,13 @@ Safety/reliability evidence includes default-deny authority, compiler self-grant
 Credential-dependent external verification remains intentionally unclaimed: no Clerk, OpenAI, Composio, Trigger.dev Cloud, Neon, or Vercel credentials are available. `DEPLOYMENT.md` records the exact provisioning, migration, task deployment, OAuth callback, smoke-test, and rollback steps. All independent implementation and deterministic acceptance paths are complete.
 
 Next: operator credential provisioning and external smoke verification using `DEPLOYMENT.md`; no additional MVP code work is required.
+
+## Post-MVP launch readiness (2026-08-19)
+
+### CI migration boundary
+
+Working: command-line migration and seed entry points now use a framework-neutral database client while application imports retain the `server-only` guard. This removes the GitHub Actions migration crash without weakening the Next.js server boundary.
+
+Verification: focused ESLint and import checks pass; the local migration command reaches database configuration instead of failing on `server-only`. A PostgreSQL-backed migration and the broader workflow will be verified in GitHub Actions after this commit is pushed.
+
+Next: restore the public GitHub conversion path, publish launch/community assets, validate Registry metadata, and complete the launch verification pass.

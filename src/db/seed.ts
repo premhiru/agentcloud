@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { closeDatabase, getDatabase } from "./client";
+import { closeDatabase, getDatabase } from "./client-core";
 import { organizations, users, organizationMemberships } from "./schema";
 
 const db = getDatabase();
