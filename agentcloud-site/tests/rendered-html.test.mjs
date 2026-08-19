@@ -26,7 +26,7 @@ test("server-renders the AgentCloud product page", async () => {
   assert.match(html, /Waiting for approval/);
   assert.match(html, /Default-deny authority/);
   assert.match(html, /href="\/demo"/);
-  assert.doesNotMatch(html, /github\.com/);
+  assert.match(html, /https:\/\/github\.com\/premhiru\/agentcloud/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);
 });
 
@@ -40,6 +40,7 @@ test("server-renders a usable interactive demo route", async () => {
   assert.match(html, /Test safely/);
   assert.match(html, /Deploy version/);
   assert.match(html, /Run now/);
+  assert.match(html, /https:\/\/github\.com\/premhiru\/agentcloud/);
   assert.match(html, /Nothing here connects to real accounts or performs external writes/);
 });
 

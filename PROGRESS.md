@@ -203,3 +203,11 @@ Working: command-line migration and seed entry points now use a framework-neutra
 Verification: focused ESLint and import checks pass; the local migration command reaches database configuration instead of failing on `server-only`. A PostgreSQL-backed migration and the broader workflow will be verified in GitHub Actions after this commit is pushed.
 
 Next: restore the public GitHub conversion path, publish launch/community assets, validate Registry metadata, and complete the launch verification pass.
+
+### Public discovery funnel
+
+Working: the public AgentCloud product page and interactive demo now keep the deterministic demo as the primary action while exposing the public GitHub repository through the header, hero, launch callout, demo header, and footer. Repository metadata now points back to the public product page and includes focused MCP, agent, workflow, and safety topics.
+
+Verification: the Sites production build and all three rendered-page tests pass, including direct checks for both the demo route and repository URL.
+
+Next: publish the verified Sites version, then validate the deployed links and complete the community and registry package.

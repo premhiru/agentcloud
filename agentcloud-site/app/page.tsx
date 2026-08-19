@@ -1,4 +1,5 @@
 const demoUrl = "/demo";
+const githubUrl = "https://github.com/premhiru/agentcloud";
 
 const lifecycle = [
   { number: "01", label: "Create", detail: "Define a versioned WorkerSpec." },
@@ -58,6 +59,7 @@ export default function Home() {
         <nav aria-label="Main navigation">
           <a href="#lifecycle">Lifecycle</a>
           <a href="#safety">Safety</a>
+          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
           <a className="nav-cta" href={demoUrl}>Try the demo <ArrowIcon /></a>
         </nav>
       </header>
@@ -72,7 +74,7 @@ export default function Home() {
           </p>
           <div className="hero-actions">
             <a className="button primary" href={demoUrl}>Try the interactive demo <ArrowIcon /></a>
-            <a className="button secondary" href="#lifecycle">See the lifecycle</a>
+            <a className="button secondary" href={githubUrl} target="_blank" rel="noreferrer">View on GitHub <ArrowIcon /></a>
           </div>
           <p className="availability"><span className="pulse" /> Production-quality MVP · private preview</p>
         </div>
@@ -178,13 +180,19 @@ export default function Home() {
           <p className="eyebrow light">Open the control plane</p>
           <h2>Give agents a durable place to work.</h2>
         </div>
-        <a className="button light-button" href={demoUrl}>Launch the interactive demo <ArrowIcon /></a>
+        <div className="cta-actions">
+          <a className="button light-button" href={demoUrl}>Launch the interactive demo <ArrowIcon /></a>
+          <a className="button cta-github" href={githubUrl} target="_blank" rel="noreferrer">Explore the source <ArrowIcon /></a>
+        </div>
       </section>
 
       <footer>
         <a className="brand footer-brand" href="#top"><span className="brand-mark" aria-hidden="true"><span /></span>AgentCloud</a>
         <p>Persistent workers. Explicit authority. Human control.</p>
-        <a href={demoUrl}>Interactive demo <ArrowIcon /></a>
+        <div className="footer-links">
+          <a href={demoUrl}>Interactive demo <ArrowIcon /></a>
+          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub <ArrowIcon /></a>
+        </div>
       </footer>
     </main>
   );

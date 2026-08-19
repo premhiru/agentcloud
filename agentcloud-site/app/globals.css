@@ -107,15 +107,21 @@ h1 em { font-family: Georgia, serif; font-weight: 400; color: var(--green); }
 .cta-section h2 { max-width: 700px; }
 .light-button { background: var(--lime); color: var(--green-dark); white-space: nowrap; }
 .light-button:hover { background: white; }
+.cta-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.cta-github { border: 1px solid rgba(255,255,255,.48); color: white; white-space: nowrap; }
+.cta-github:hover { background: rgba(255,255,255,.1); }
 footer { width: min(1180px, calc(100% - 48px)); min-height: 110px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 12px; }
 .footer-brand { color: var(--ink); }
-footer > a:last-child { display: inline-flex; align-items: center; gap: 6px; }
+.footer-links { display: flex; gap: 18px; }
+.footer-links a { display: inline-flex; align-items: center; gap: 6px; }
+.footer-links a:hover { color: var(--green); }
 
 /* Interactive demo */
 .demo-shell { min-height: 100vh; background: #f2f0e8; }
 .demo-header { width: min(1380px, calc(100% - 48px)); height: 78px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .demo-back { color: var(--muted); font-size: 13px; font-weight: 650; }
 .demo-back:hover { color: var(--green); }
+.demo-header-links { display: flex; align-items: center; gap: 20px; }
 .demo-intro { width: min(1380px, calc(100% - 48px)); margin: 0 auto; padding: 62px 0 46px; display: grid; grid-template-columns: 1.1fr .9fr; align-items: end; gap: 80px; }
 .demo-intro h1 { max-width: 900px; font-size: clamp(46px, 5vw, 72px); }
 .demo-intro > p { max-width: 520px; margin: 0 0 5px; color: var(--muted); font-size: 16px; line-height: 1.65; }
@@ -224,8 +230,10 @@ footer > a:last-child { display: inline-flex; align-items: center; gap: 6px; }
   .journey-section { width: 100%; padding-left: 16px; padding-right: 16px; }
   .spec-card pre { font-size: 11px; padding: 20px; }
   .cta-section { align-items: flex-start; flex-direction: column; }
+  .cta-actions { justify-content: flex-start; }
   footer { padding: 28px 0; align-items: flex-start; flex-direction: column; }
   footer p { margin: 0; }
+  .footer-links { flex-wrap: wrap; }
   .demo-header, .demo-intro, .demo-app { width: min(100% - 24px, 1380px); }
   .demo-header { height: 68px; }
   .demo-intro { padding: 48px 0 34px; }

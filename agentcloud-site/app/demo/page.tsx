@@ -15,7 +15,10 @@ export default function DemoPage() {
           <span className="brand-mark" aria-hidden="true"><span /></span>
           AgentCloud
         </Link>
-        <Link className="demo-back" href="/">← Product overview</Link>
+        <div className="demo-header-links">
+          <a className="demo-back" href="https://github.com/premhiru/agentcloud" target="_blank" rel="noreferrer">GitHub</a>
+          <Link className="demo-back" href="/">← Product overview</Link>
+        </div>
       </header>
 
       <section className="demo-intro">
