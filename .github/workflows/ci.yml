@@ -50,4 +50,5 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - run: npm ci --prefix agentcloud-site
+      - run: npm run lint --prefix agentcloud-site
       - run: npm test --prefix agentcloud-site
