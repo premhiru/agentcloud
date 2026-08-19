@@ -231,3 +231,18 @@ Verification: `server.json` validates against the official 2025-12-11 schema; th
 Blockers: official Registry publication remains correctly disabled until a stable production endpoint and real Clerk OAuth interoperability are verified. The marketing Sites deployment is not a production MCP runtime.
 
 Next: run the complete repository validation suite, verify GitHub Actions, and publish the remaining repository updates.
+
+### Launch verification
+
+Working: Sites version 3 is public at `https://agentcloud-control-plane.premhiru.chatgpt.site`; the primary demo and secondary GitHub paths resolve; repository homepage, description, and discovery topics are published; the local development application is restored on port 3000.
+
+Verification:
+
+- GitHub Actions CI run `32211625961` passed PostgreSQL migration, root lint/typecheck/tests/build, four Chromium journeys, companion-site install/lint/build/render tests, and cleanup.
+- MCP Registry metadata workflow run `32211200236` passed.
+- Local validation passed: 42 unit tests, 29 integration tests, 14 security invariant tests, 3 authenticated MCP lifecycle tests, optimized application build, 4 critical Chromium journeys, companion-site lint, and 3 production render tests.
+- Live public-site verification passed: safe test with zero writes; live approval pause/resume; one email timeline event; worker pause/resume; version creation/rollback; and public GitHub resolution.
+
+External gates: a production AgentCloud runtime and official Registry publication still require the operator credentials and OAuth checks in `DEPLOYMENT.md` and `docs/MCP_REGISTRY.md`. GitHub social-preview upload requires an authenticated browser settings session. The repository license remains pending the owner’s Apache-2.0 versus MIT choice.
+
+Next: provision operator credentials for the production runtime, verify OAuth from a real MCP host, then run the guarded Registry publication workflow. No credential-independent launch work remains.
