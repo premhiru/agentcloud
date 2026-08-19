@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/premhiru/agentcloud/security/policy
+    about: Report suspected vulnerabilities privately. Never include credentials or customer data in a public issue.
+  - name: Product overview and interactive demo
+    url: https://agentcloud-control-plane.premhiru.chatgpt.site
+    about: Explore the governed worker lifecycle before opening a question or request.

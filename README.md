@@ -299,6 +299,9 @@ Real Gmail, HubSpot, Slack, Clerk OAuth, Trigger.dev Cloud, OpenAI, and Vercel c
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — boundaries, core contracts, persistence, and runtime independence
 - [SECURITY.md](./SECURITY.md) — threat model, tenant isolation, approvals, side effects, and vulnerability reporting
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — production provisioning, release, verification, and rollback
+- [docs/MCP_REGISTRY.md](./docs/MCP_REGISTRY.md) — remote MCP OAuth gates and guarded Registry publication
+- [docs/LAUNCH_KIT.md](./docs/LAUNCH_KIT.md) — positioning, launch copy, and the verified 75-second demo script
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — development workflow, safety guardrails, and test expectations
 - [PLAN.md](./PLAN.md) — product thesis, technical design, milestones, and Definition of Done
 - [PROGRESS.md](./PROGRESS.md) — milestone checkpoints and exact verification history
 - [.env.example](./.env.example) — complete configuration contract

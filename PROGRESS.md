@@ -211,3 +211,21 @@ Working: the public AgentCloud product page and interactive demo now keep the de
 Verification: the Sites production build and all three rendered-page tests pass, including direct checks for both the demo route and repository URL.
 
 Next: publish the verified Sites version, then validate the deployed links and complete the community and registry package.
+
+### Community and launch package
+
+Working: contribution guidance, security-aware issue forms, a safety-boundary pull request template, reusable launch copy, positioning, and a 75-second demo script are ready for the public repository. The launch language distinguishes the credential-free deterministic demo from unverified vendor-backed production claims.
+
+Verification: all issue-form YAML parses, all package files pass Prettier, and `git diff --check` passes.
+
+Next: publish the community package and finish the guarded MCP Registry release path.
+
+### MCP Registry release preparation
+
+Working: schema-valid remote-server metadata, a continuous metadata validation workflow, and a reviewed manual GitHub OIDC publication workflow are ready. Publication is gated on an exact confirmation, a real HTTPS `/api/mcp` endpoint, protected-resource metadata, the unauthenticated OAuth challenge, a pinned checksum-verified official publisher, and post-publish version lookup.
+
+Verification: `server.json` validates against the official 2025-12-11 schema; the publisher v1.8.1 release checksum matches the official GitHub release asset; metadata and workflows pass formatting checks.
+
+Blockers: official Registry publication remains correctly disabled until a stable production endpoint and real Clerk OAuth interoperability are verified. The marketing Sites deployment is not a production MCP runtime.
+
+Next: run the complete repository validation suite, verify GitHub Actions, and publish the remaining repository updates.

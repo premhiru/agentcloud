@@ -1,0 +1,102 @@
+name: Publish MCP registry release
+
+on:
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: Canonical production endpoint, including /api/mcp
+        required: true
+        type: string
+      confirmation:
+        description: Type "publish io.github.premhiru/agentcloud" after completing the release runbook
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: mcp-registry-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: mcp-registry-production
+    env:
+      MCP_ENDPOINT: ${{ inputs.endpoint }}
+      MCP_CONFIRMATION: ${{ inputs.confirmation }}
+      PUBLISHER_VERSION: 1.8.1
+      PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate explicit release inputs
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          if (process.env.MCP_CONFIRMATION !== "publish io.github.premhiru/agentcloud") {
+            throw new Error("Exact publication confirmation was not supplied");
+          }
+
+          const endpoint = new URL(process.env.MCP_ENDPOINT);
+          if (endpoint.protocol !== "https:" || endpoint.pathname !== "/api/mcp" || endpoint.search || endpoint.hash) {
+            throw new Error("endpoint must be a canonical HTTPS URL ending at /api/mcp");
+          }
+
+          const metadata = JSON.parse(fs.readFileSync("server.json", "utf8"));
+          const app = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          if (metadata.version !== app.version) throw new Error("server.json and package.json versions differ");
+          NODE
+
+      - name: Verify protected endpoint and OAuth discovery
+        shell: bash
+        run: |
+          ORIGIN="$(node -e 'console.log(new URL(process.env.MCP_ENDPOINT).origin)')"
+          curl --fail --silent --show-error "$ORIGIN/.well-known/oauth-protected-resource" --output protected-resource.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const metadata = JSON.parse(fs.readFileSync("protected-resource.json", "utf8"));
+          if (metadata.resource !== process.env.MCP_ENDPOINT) throw new Error("protected resource does not match the MCP endpoint");
+          if (!Array.isArray(metadata.authorization_servers) || metadata.authorization_servers.length === 0) {
+            throw new Error("protected resource has no authorization server");
+          }
+          NODE
+
+          STATUS="$(curl --silent --show-error --dump-header response-headers.txt --output /dev/null --write-out '%{http_code}' "$MCP_ENDPOINT")"
+          test "$STATUS" = "401"
+          grep --ignore-case '^www-authenticate:.*resource_metadata=' response-headers.txt
+
+      - name: Materialize release metadata
+        shell: bash
+        run: |
+          jq --arg endpoint "$MCP_ENDPOINT" '.remotes = [{"type":"streamable-http","url":$endpoint}]' server.json > server.release.json
+          mv server.release.json server.json
+
+      - name: Install the pinned official publisher
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz" \
+            --output mcp-publisher.tar.gz
+          echo "${PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum --check --strict
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+
+      - name: Publish through GitHub OIDC
+        shell: bash
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
+      - name: Verify the published version
+        shell: bash
+        run: |
+          VERSION="$(node -p 'require("./server.json").version')"
+          curl --fail --silent --show-error \
+            "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.premhiru/agentcloud" \
+            | jq --arg version "$VERSION" -e '.servers | any(.server.name == "io.github.premhiru/agentcloud" and .server.version == $version)'

@@ -1,0 +1,67 @@
+name: Feature request
+description: Propose a focused AgentCloud capability or improvement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AgentCloud favors narrow, governable capabilities over unrestricted tools. Explain the user outcome and how the proposal preserves the product's safety boundaries.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for a similar request.
+          required: true
+        - label: I am describing the problem and intended outcome, not only a preferred implementation.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who has this problem, and what are they unable to do safely today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the smallest useful end state and how success should be measured.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      options:
+        - Worker lifecycle
+        - Policy and authority
+        - Approvals
+        - Runtime and scheduling
+        - Integration adapters
+        - MCP
+        - Dashboard and observability
+        - Deployment and operations
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Safety and architecture impact
+      description: Explain the effect on tenant isolation, WorkerSpec versioning, default-deny policy, approvals, idempotency, dry-run behavior, credentials, runtime abstraction, and integration abstraction. Write "None" for boundaries that do not apply.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include current workarounds or smaller approaches, if any.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized examples, diagrams, or links that clarify the request.

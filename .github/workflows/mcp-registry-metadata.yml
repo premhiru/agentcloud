@@ -1,0 +1,60 @@
+name: MCP registry metadata
+
+on:
+  pull_request:
+    paths:
+      - server.json
+      - .github/workflows/mcp-registry-metadata.yml
+  push:
+    branches: [main]
+    paths:
+      - server.json
+      - .github/workflows/mcp-registry-metadata.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Download the pinned official schema
+        run: curl --fail --silent --show-error --location "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json" --output "$RUNNER_TEMP/server.schema.json"
+
+      - name: Validate server.json
+        run: pnpm dlx ajv-cli@5.0.0 validate --spec=draft7 --strict=false -s "$RUNNER_TEMP/server.schema.json" -d server.json
+
+      - name: Verify release identity
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const metadata = JSON.parse(fs.readFileSync("server.json", "utf8"));
+          const app = JSON.parse(fs.readFileSync("package.json", "utf8"));
+
+          if (metadata.name !== "io.github.premhiru/agentcloud") {
+            throw new Error("server.json must remain in the verified GitHub namespace");
+          }
+          if (metadata.version !== app.version) {
+            throw new Error(`server.json version ${metadata.version} does not match package.json ${app.version}`);
+          }
+          if (metadata.remotes?.some((remote) => remote.type !== "streamable-http")) {
+            throw new Error("AgentCloud registry remotes must use Streamable HTTP");
+          }
+          for (const value of [metadata.$schema, metadata.websiteUrl, metadata.repository?.url]) {
+            const url = new URL(value);
+            if (url.protocol !== "https:") throw new Error(`${value} must use HTTPS`);
+          }
+          if (metadata.remotes?.length !== 1 || metadata.remotes[0].url !== "https://{agentcloud_host}/api/mcp") {
+            throw new Error("Source metadata must retain the reviewed self-hosted endpoint template");
+          }
+          NODE

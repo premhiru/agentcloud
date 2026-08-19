@@ -1,0 +1,91 @@
+name: Bug report
+description: Report a reproducible defect in AgentCloud
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AgentCloud. Do not include credentials, customer data, access tokens, or unredacted action payloads. Report security issues privately using SECURITY.md.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: This report does not contain secrets, personal data, or sensitive integration payloads.
+          required: true
+        - label: This is not a suspected security vulnerability.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Dashboard and UI
+        - Worker lifecycle
+        - Policy and authority
+        - Approvals
+        - Runtime and scheduling
+        - Integration adapters
+        - MCP
+        - Persistence and tenancy
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior and why it is incorrect.
+      placeholder: A run paused for approval, but approving it did not resume the same run.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest deterministic sequence that reproduces the issue.
+      placeholder: |
+        1. Start in demo mode
+        2. Open ...
+        3. Choose ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: AgentCloud revision
+      description: Commit SHA, release tag, or deployment version if known.
+      placeholder: 502825c
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system, Node version, and demo or production mode.
+      placeholder: Chrome 140, Windows 11, Node 24, demo mode
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Add redacted logs, screenshots, or timeline events. Remove all secret and personal values.
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Regression?
+      options:
+        - Unknown
+        - Yes, this worked before
+        - No, this has never worked
+    validations:
+      required: true

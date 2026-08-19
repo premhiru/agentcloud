@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.premhiru/agentcloud",
+  "title": "AgentCloud",
+  "description": "Governed persistent AI workers with approvals, dry-runs, tenant isolation, and durable runs.",
+  "version": "0.1.0",
+  "websiteUrl": "https://agentcloud-control-plane.premhiru.chatgpt.site",
+  "repository": {
+    "url": "https://github.com/premhiru/agentcloud",
+    "source": "github",
+    "id": "1338984049"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://{agentcloud_host}/api/mcp",
+      "variables": {
+        "agentcloud_host": {
+          "description": "Hostname of a production AgentCloud deployment, without a scheme or path.",
+          "isRequired": true,
+          "placeholder": "agentcloud.example.com"
+        }
+      }
+    }
+  ]
+}
