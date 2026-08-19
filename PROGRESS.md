@@ -202,6 +202,8 @@ Working: command-line migration and seed entry points now use a framework-neutra
 
 Verification: focused ESLint and import checks pass; the local migration command reaches database configuration instead of failing on `server-only`. A PostgreSQL-backed migration and the broader workflow will be verified in GitHub Actions after this commit is pushed.
 
+GitHub Actions verification: PostgreSQL migration and lint now pass. The first unblocked run then exposed that the root TypeScript project was also compiling the independently packaged Sites application without its npm dependencies. The root project now excludes that package, while CI installs and runs the Sites build/render tests explicitly. Local root typecheck and the Sites production test pass.
+
 Next: restore the public GitHub conversion path, publish launch/community assets, validate Registry metadata, and complete the launch verification pass.
 
 ### Public discovery funnel
