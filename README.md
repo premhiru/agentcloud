@@ -309,3 +309,7 @@ Real Gmail, HubSpot, Slack, Clerk OAuth, Trigger.dev Cloud, OpenAI, and Vercel c
 ## Security
 
 Do not open a public issue containing a vulnerability, credential, customer data, or unredacted action payload. Follow the private reporting guidance in [SECURITY.md](./SECURITY.md).
+
+## License
+
+AgentCloud is available under the [Apache License 2.0](./LICENSE).

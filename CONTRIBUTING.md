@@ -98,4 +98,4 @@ Reviewers will check that:
 - documentation and tests match the implementation;
 - generated artifacts and unrelated formatting changes are excluded.
 
-By contributing, you agree that your contribution may be distributed under the repository's license once the project license is published.
+By contributing, you agree that your contribution may be distributed under the Apache License 2.0.
