@@ -1,76 +1,308 @@
+<div align="center">
+  <img src="./agentcloud-site/public/og.png" alt="AgentCloud — Persistent AI workers. Governed from day one." width="100%" />
+</div>
+
 # AgentCloud
 
-AgentCloud is a control plane for persistent AI workers. It turns a plain-language objective into a versioned WorkerSpec, makes authority and budgets explicit, supports side-effect-free testing, deploys through an abstract runtime, pauses for human approval, and records a complete operational timeline.
+**A control plane for persistent AI workers.** Turn an objective into a versioned worker, test it without writes, deploy it to a durable runtime, require human approval for sensitive actions, and inspect every decision in one timeline.
 
-## Status
+[![CI](https://github.com/premhiru/agentcloud/actions/workflows/ci.yml/badge.svg)](https://github.com/premhiru/agentcloud/actions/workflows/ci.yml)
+![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-155c3e)
+![pnpm 11](https://img.shields.io/badge/pnpm-11-f69220)
+![WorkerSpec 1.0](https://img.shields.io/badge/WorkerSpec-1.0-10231b)
 
-This repository implements the MVP in `PLAN.md`. `PROGRESS.md` records verified milestone checkpoints and exact validation commands.
+[Project overview (owner-only preview)](https://agentcloud-control-plane.premhiru.chatgpt.site) · [Architecture](./ARCHITECTURE.md) · [Security](./SECURITY.md) · [Deployment](./DEPLOYMENT.md) · [Implementation plan](./PLAN.md)
 
-## Architecture
+> [!TIP]
+> The complete demo is deterministic and credential-free. It uses fake model, Gmail, HubSpot, Slack, and runtime adapters while exercising the same policy, approval, idempotency, and persistence boundaries as production.
 
-The Next.js App Router application serves the dashboard, typed API, and remote MCP endpoint. PostgreSQL/Drizzle stores workers, immutable versions, triggers, runs, approvals, idempotent tool executions, memory, usage, and append-only audit events. Trigger.dev v4 is behind `WorkerRuntime`; Composio is behind `IntegrationAdapter`; AI SDK/OpenAI is behind `ModelProvider`. See `ARCHITECTURE.md` and `SECURITY.md`.
+## What AgentCloud does
 
-## Prerequisites
+Most agent demos end when the chat closes. AgentCloud treats an AI worker as a durable, governed software artifact:
+
+| Capability | What it means |
+| --- | --- |
+| **Versioned workers** | Every deployment pins an immutable `WorkerSpec`; new changes create a new version. |
+| **Explicit authority** | Unknown and ungranted capabilities are denied by default. |
+| **Safe testing** | Dry-runs execute reads against deterministic fixtures and convert every write into a “would execute” event. |
+| **Human approval** | Sensitive actions pause with a redacted preview and resume the exact run after a decision. |
+| **Durable execution** | Runs, checkpoints, approvals, schedules, and audit events persist independently of the initiating conversation. |
+| **Exactly-once intent** | Stable idempotency keys prevent duplicate side effects during retries and approval resumes. |
+| **Tenant isolation** | Every tenant-owned operation is scoped to an organization at the repository and service boundaries. |
+| **One lifecycle, two surfaces** | The dashboard and authenticated MCP expose the same create, test, deploy, run, approve, pause, resume, version, and rollback lifecycle. |
+
+## Quickstart
+
+### Requirements
 
 - Node.js 24 or later
 - pnpm 11
-- PostgreSQL 16+ or Neon (unless using the in-memory automated test harness)
 
-## Local deterministic demo
+### Install and run
 
 ```bash
+git clone https://github.com/premhiru/agentcloud.git
+cd agentcloud
 pnpm install
 cp .env.example .env.local
 pnpm dev
 ```
 
-Keep both demo flags `true`. The demo persists to `.agentcloud/demo-store.json` and uses deterministic Gmail, HubSpot, Slack, model, and runtime adapters. It does not need PostgreSQL or vendor credentials, and exercises create/version/test/deploy/trigger/approval/resume/pause/rollback through the governed runner. Demo mode is explicit and never used as a production fallback.
+On PowerShell, replace the copy command with:
 
-## Production service setup
+```powershell
+Copy-Item .env.example .env.local
+```
 
-1. Create a PostgreSQL/Neon database and set `DATABASE_URL`; run `pnpm db:migrate`.
-2. Create a Clerk application, enable Organizations, add the publishable/secret keys, and enable OAuth Provider dynamic client registration for MCP. A user must sign in, select or create an organization, and visit the dashboard once so AgentCloud can create its tenant membership. Configure the seven scopes listed below.
-3. Create Trigger.dev development/production environments, set `TRIGGER_SECRET_KEY` and `TRIGGER_PROJECT_REF`, then run `pnpm trigger:deploy` from the same revision as the web deployment.
-4. Create Composio auth configurations for Gmail, HubSpot, and Slack, set their IDs plus `COMPOSIO_API_KEY`, and allow `APP_BASE_URL/api/integrations/callback` as a redirect. AgentCloud stores opaque connected-account references only; OAuth tokens remain in Composio.
-5. Set `OPENAI_API_KEY`, `WORKER_COMPILER_MODEL`, and `WORKER_MODEL`.
-6. Set `APP_BASE_URL` and a strong `WEBHOOK_SIGNING_SECRET`.
+Open [http://localhost:3000](http://localhost:3000). The checked-in environment template already enables the safe demo adapters, so no database or vendor credentials are required.
 
-Exact variables and safe defaults are documented in `.env.example`. Set `DEMO_MODE=false` and `NEXT_PUBLIC_DEMO_MODE=false` in production. See `DEPLOYMENT.md` for the release and rollback runbook.
+Demo state is persisted in `.agentcloud/demo-store.json`. Demo mode is explicit and is never used as a production fallback.
 
-## Commands
+## Run the canonical worker
+
+The included **Inbound Sales Worker** demonstrates the complete governed lifecycle:
+
+1. Open **Workers** and select **Inbound Sales Guardian**.
+2. Choose **Test safely**. AgentCloud reads deterministic lead fixtures and records proposed writes without executing them.
+3. Deploy the worker, then choose **Run now**.
+4. The run qualifies the lead, updates the fake CRM once, drafts outreach, and pauses before sending email.
+5. Open **Approvals**, inspect the exact redacted action, then choose **Approve and view run**.
+6. The same run resumes from its checkpoint, sends exactly one fake email, posts one fake Slack notification, and finishes with a complete timeline.
+7. Pause or resume the deployment, create a new version, deploy it, and roll back to a previous immutable version.
+
+The same sequence is covered through the AgentCloud MCP, including reconnecting from a new client after the initiating client has closed.
+
+## How it works
+
+```text
+Dashboard · MCP · Signed webhooks
+                │
+                ▼
+      AgentCloud control plane
+                │
+     ┌──────────┼──────────┐
+     ▼          ▼          ▼
+ WorkerSpec   Policy     Budgets
+ versions     engine     and usage
+     │          │          │
+     └──────────┼──────────┘
+                ▼
+        Governed worker runner
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+ WorkerRuntime     IntegrationAdapter
+ Fake / Trigger.dev  Fake / Composio
+                │
+                ▼
+ PostgreSQL · approvals · timelines · audit
+```
+
+AgentCloud keeps vendor-specific code behind narrow interfaces:
+
+| Boundary | Deterministic implementation | Production implementation |
+| --- | --- | --- |
+| `ModelProvider` | Fixed compiler and worker outputs | AI SDK with OpenAI |
+| `WorkerRuntime` | In-process durable fake runtime | Trigger.dev v4 |
+| `IntegrationAdapter` | Gmail, HubSpot, and Slack fixtures | Composio connected accounts |
+| Persistence | Durable demo JSON / in-memory test repositories | PostgreSQL with Drizzle ORM |
+| Identity | Explicit demo tenant | Clerk users and organizations |
+
+This separation keeps the core lifecycle portable and makes CI deterministic.
+
+## WorkerSpec and authority
+
+A worker deployment references an immutable `WorkerSpec` version. The spec defines identity, triggers, authority, budgets, memory policy, and runtime behavior without embedding credentials. This excerpt shows the authority and budget shape:
+
+```yaml
+schemaVersion: "1.0"
+identity:
+  name: Inbound Sales Guardian
+capabilities:
+  - capability: gmail.search_messages
+  - capability: hubspot.upsert_contact
+  - capability: gmail.send_email
+authority:
+  defaultEffect: deny
+  rules:
+    - capability: gmail.search_messages
+      effect: allow
+    - capability: hubspot.upsert_contact
+      effect: allow
+    - capability: gmail.send_email
+      effect: require_approval
+budget:
+  monthlyUsd: 50
+  perRunUsd: 1
+  maxModelCallsPerRun: 12
+  maxToolCallsPerRun: 30
+```
+
+The policy engine evaluates every tool call against the pinned spec. Missing capabilities, invalid inputs, exceeded budgets, and unknown operations fail closed.
+
+## Safety model
+
+Safety is enforced in application code and persistence—not delegated to the model prompt.
+
+| Invariant | Enforcement |
+| --- | --- |
+| Default deny | Only capabilities in the curated registry and active WorkerSpec may execute. |
+| Dry-run write suppression | Write capabilities return structured previews before any adapter call. |
+| Approval integrity | Each approval is bound to a canonical hash of the exact capability and input. |
+| Resume integrity | Approved runs continue from a serialized checkpoint without replaying earlier work. |
+| Duplicate prevention | Tool executions are unique by run and model tool-call ID; successful results are replayed. |
+| Unknown outcomes | Ambiguous write failures stop for manual reconciliation instead of retrying blindly. |
+| Tenant isolation | Organization IDs are mandatory across repositories, control-plane operations, MCP, and routes. |
+| Secret hygiene | Credentials never enter WorkerSpecs, browser bundles, logs, audit events, MCP output, or approval previews. |
+
+See [SECURITY.md](./SECURITY.md) for the complete threat model and security invariants.
+
+## MCP
+
+AgentCloud exposes a Streamable HTTP MCP endpoint at:
+
+```text
+https://YOUR_DOMAIN/api/mcp
+```
+
+Production MCP authentication uses Clerk OAuth metadata and organization membership. Each tool rechecks its required scope server-side.
+
+Available lifecycle tools include:
+
+```text
+create_worker       update_worker       test_worker
+deploy_worker       trigger_worker      cancel_run
+get_run             list_runs           list_approvals
+approve_action      reject_action       pause_worker
+resume_worker       list_worker_versions rollback_worker
+get_usage           list_connections    delete_worker
+```
+
+OAuth scopes:
+
+```text
+workers:read        workers:write       workers:deploy
+runs:read           approvals:read      approvals:write
+connections:read
+```
+
+The protocol tests use the official MCP client in-process, enforce authentication and scopes, and verify that a second client can recover persisted workers and runs.
+
+## Webhooks
+
+Workers can expose signed webhook triggers at:
+
+```text
+POST /api/webhooks/workers/{workerId}/{triggerKey}
+```
+
+Requests require:
+
+- `X-AgentCloud-Signature: sha256=<hex>` computed from the raw body with `WEBHOOK_SIGNING_SECRET`
+- A stable `Idempotency-Key`
+- A body no larger than 256 KiB
+
+Webhook requests are rate-limited, structurally validated, tenant-scoped, and deduplicated. Reusing an idempotency key with a different payload is rejected.
+
+## Configuration
+
+AgentCloud has two explicit operating modes:
+
+| Mode | Required setup | Behavior |
+| --- | --- | --- |
+| **Demo** | `DEMO_MODE=true` and `NEXT_PUBLIC_DEMO_MODE=true` | Durable local demo with deterministic adapters and no external writes. |
+| **Production** | PostgreSQL, Clerk, OpenAI, Trigger.dev, Composio, and application secrets | Real adapters are selected explicitly; missing configuration fails closed. |
+
+Start with [.env.example](./.env.example), which documents every variable and its safe default. Never expose server secrets through `NEXT_PUBLIC_*` variables.
+
+## Development
 
 ```bash
 pnpm dev               # Next.js development server
-pnpm lint              # ESLint
+pnpm lint              # ESLint with zero warnings
 pnpm typecheck         # strict TypeScript
-pnpm test              # unit + integration + security + MCP tests
-pnpm test:e2e          # Playwright critical journeys
-pnpm build             # production build
-pnpm db:generate       # generate a reviewed Drizzle migration
+pnpm test              # full Vitest suite
+pnpm test:unit         # domain and adapter tests
+pnpm test:integration  # persistence and lifecycle tests
+pnpm test:security     # product safety invariants
+pnpm test:mcp          # authenticated MCP lifecycle
+pnpm test:e2e          # critical Playwright journeys
+pnpm build             # optimized production build
 pnpm db:migrate        # apply committed migrations
-pnpm db:seed           # seed the demo tenant
-pnpm trigger:dev       # run Trigger.dev tasks locally
+pnpm db:seed           # seed a local tenant
+pnpm trigger:dev       # Trigger.dev local task runner
 pnpm trigger:deploy    # deploy Trigger.dev tasks
 ```
 
-## MCP connection
+### Validation contract
 
-The remote endpoint is `/api/mcp`. In production it advertises Clerk OAuth metadata and requires a token whose Clerk user already has an AgentCloud organization membership. Configure an MCP host with `https://YOUR_DOMAIN/api/mcp`; dynamic registration and authorization are handled by Clerk. The supported scopes are `workers:read`, `workers:write`, `workers:deploy`, `runs:read`, `approvals:read`, `approvals:write`, and `connections:read`. Each tool rechecks its own scope server-side. Demo lifecycle tests use the v2 MCP client in-process and never expose secrets.
+CI runs the following against Node.js 24, pnpm 11, and PostgreSQL 16:
 
-## Signed webhooks
+```bash
+pnpm install --frozen-lockfile
+pnpm db:migrate
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:e2e
+```
 
-A deployed WorkerSpec webhook `{ type: "webhook", key: "lead-intake" }` is exposed at `POST /api/webhooks/workers/{workerId}/lead-intake`. Send the raw-body HMAC-SHA256 in `X-AgentCloud-Signature: sha256=<hex>` using `WEBHOOK_SIGNING_SECRET`, plus a stable `Idempotency-Key`. Requests are capped at 256 KiB, rate-limited, structurally validated, and deduplicated. Reusing a key with a different payload is rejected.
+The test matrix covers unit, integration, tenant-isolation, dry-run safety, approval pause/resume, duplicate-side-effect, MCP lifecycle, signed webhook, production persistence, and critical browser flows.
 
-## Deployment
+## Repository guide
 
-Deploy the Next.js application to Vercel with the production environment variables, migrate the production database from a controlled release job, and deploy Trigger.dev tasks from the same Git revision. Vercel hosts the UI/API/MCP/webhook endpoints; Trigger.dev continues scheduled and waiting work independently of the initiating browser or MCP conversation.
+```text
+src/
+  application/       control plane and durable demo store
+  domain/            WorkerSpec, versions, policy, budgets
+  runtime/           governed runner and runtime adapters
+  integrations/      tool registry and integration adapters
+  approvals/         approval hashing, decisions, and waitpoints
+  persistence/       PostgreSQL repositories and audit records
+  mcp/               authenticated MCP server and tool service
+  app/               dashboard, API, MCP, and webhook routes
+tests/
+  unit/              domain contracts
+  integration/       persistence and lifecycle boundaries
+  security/          non-negotiable product invariants
+  mcp/               protocol-level lifecycle tests
+  e2e/               Playwright user journeys
+trigger/              Trigger.dev durable task entrypoint
+agentcloud-site/      companion product site
+```
 
-No deployment is claimed by this repository alone. Vendor account creation, OAuth consent, production database migration, DNS, and secret configuration are manual credentialed steps.
+## Production deployment
 
-## Known MVP limitations
+Deploy the web application and runtime from the same Git revision:
 
-- Gmail, HubSpot, and Slack are the only supported integration families.
-- Financial, destructive, bulk, arbitrary MCP, browser, shell, and user-code tools are intentionally unavailable.
-- OpenAI is the sole real model provider in the MVP, although the internal model boundary is provider-neutral.
-- Ambiguous write outcomes require manual reconciliation rather than automatic retry.
-- Production readiness is verified in CI with deterministic adapters; real OAuth consent, Trigger.dev Cloud execution, and Vercel deployment still require the operator-owned credentials described above.
+1. Provision PostgreSQL or Neon and run the committed migrations.
+2. Configure Clerk Organizations and MCP OAuth scopes.
+3. Configure Trigger.dev and deploy the worker task.
+4. Create Composio Gmail, HubSpot, and Slack auth configurations.
+5. Configure OpenAI, the application URL, and webhook signing secret.
+6. Deploy the Next.js application to Vercel, then run the operational checks.
+
+The exact release order, smoke tests, rollback procedure, and credential-dependent checks are in [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+> [!IMPORTANT]
+> This repository verifies production code paths with deterministic adapters. It does not claim successful vendor OAuth consent, Trigger.dev Cloud execution, Vercel deployment, or real third-party writes without operator-owned credentials.
+
+## Project status
+
+The credential-independent MVP and all milestones in [PLAN.md](./PLAN.md) are complete. [PROGRESS.md](./PROGRESS.md) records the implemented behavior and verification evidence for each milestone.
+
+Real Gmail, HubSpot, Slack, Clerk OAuth, Trigger.dev Cloud, OpenAI, and Vercel checks remain operator-credentialed deployment steps. The product intentionally does not expose financial, destructive, bulk, arbitrary MCP, browser, shell, or user-code tools.
+
+## Documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — boundaries, core contracts, persistence, and runtime independence
+- [SECURITY.md](./SECURITY.md) — threat model, tenant isolation, approvals, side effects, and vulnerability reporting
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — production provisioning, release, verification, and rollback
+- [PLAN.md](./PLAN.md) — product thesis, technical design, milestones, and Definition of Done
+- [PROGRESS.md](./PROGRESS.md) — milestone checkpoints and exact verification history
+- [.env.example](./.env.example) — complete configuration contract
+
+## Security
+
+Do not open a public issue containing a vulnerability, credential, customer data, or unredacted action payload. Follow the private reporting guidance in [SECURITY.md](./SECURITY.md).
