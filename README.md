@@ -11,7 +11,7 @@
 ![pnpm 11](https://img.shields.io/badge/pnpm-11-f69220)
 ![WorkerSpec 1.0](https://img.shields.io/badge/WorkerSpec-1.0-10231b)
 
-[Project overview (owner-only preview)](https://agentcloud-control-plane.premhiru.chatgpt.site) · [Architecture](./ARCHITECTURE.md) · [Security](./SECURITY.md) · [Deployment](./DEPLOYMENT.md) · [Implementation plan](./PLAN.md)
+[Project overview](https://agentcloud-control-plane.premhiru.chatgpt.site) · [Interactive demo](https://agentcloud-control-plane.premhiru.chatgpt.site/demo) · [Architecture](./ARCHITECTURE.md) · [Security](./SECURITY.md) · [Deployment](./DEPLOYMENT.md) · [Implementation plan](./PLAN.md)
 
 > [!TIP]
 > The complete demo is deterministic and credential-free. It uses fake model, Gmail, HubSpot, Slack, and runtime adapters while exercising the same policy, approval, idempotency, and persistence boundaries as production.

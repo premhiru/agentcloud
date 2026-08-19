@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { DemoControlPlane } from "./demo-control-plane";
+
+export const metadata: Metadata = {
+  title: "Interactive demo — AgentCloud",
+  description: "Try the complete AgentCloud worker lifecycle in a deterministic browser demo with no real external writes.",
+};
+
+export default function DemoPage() {
+  return (
+    <main className="demo-shell">
+      <header className="demo-header">
+        <Link className="brand" href="/" aria-label="Back to AgentCloud overview">
+          <span className="brand-mark" aria-hidden="true"><span /></span>
+          AgentCloud
+        </Link>
+        <Link className="demo-back" href="/">← Product overview</Link>
+      </header>
+
+      <section className="demo-intro">
+        <div>
+          <p className="eyebrow"><span /> Interactive browser demo</p>
+          <h1>Operate a worker.<br /><em>Keep every decision visible.</em></h1>
+        </div>
+        <p>
+          Run the canonical inbound-sales lifecycle with deterministic fixtures.
+          Nothing here connects to real accounts or performs external writes.
+        </p>
+      </section>
+
+      <DemoControlPlane />
+    </main>
+  );
+}
