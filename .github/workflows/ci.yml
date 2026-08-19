@@ -47,7 +47,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
+      # GitHub-hosted Ubuntu runners already provide Chromium's system libraries.
+      # Avoid apt-based `--with-deps`, which can stall on the runner mirror and
+      # consume the entire job timeout before the browser tests start.
+      - run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
       - run: npm ci --prefix agentcloud-site
       - run: npm run lint --prefix agentcloud-site
