@@ -243,7 +243,7 @@ Verification:
 - Local validation passed: 42 unit tests, 29 integration tests, 14 security invariant tests, 3 authenticated MCP lifecycle tests, optimized application build, 4 critical Chromium journeys, companion-site lint, and 3 production render tests.
 - Live public-site verification passed: safe test with zero writes; live approval pause/resume; one email timeline event; worker pause/resume; version creation/rollback; and public GitHub resolution.
 
-External gates: a production AgentCloud runtime and official Registry publication still require the operator credentials and OAuth checks in `DEPLOYMENT.md` and `docs/MCP_REGISTRY.md`. GitHub social-preview upload requires an authenticated browser settings session. The repository license remains pending the owner’s Apache-2.0 versus MIT choice.
+External gates: a production AgentCloud runtime and official Registry publication still require the operator credentials and OAuth checks in `DEPLOYMENT.md` and `docs/MCP_REGISTRY.md`.
 
 Next: provision operator credentials for the production runtime, verify OAuth from a real MCP host, then run the guarded Registry publication workflow. No credential-independent launch work remains.
 
@@ -260,6 +260,7 @@ Verification:
 - `pnpm test:mcp` — passed, 3 authenticated protocol lifecycle tests.
 - `pnpm build` — passed; the optimized build includes the Clerk proxy and both auth routes.
 - Browser verification — passed; the signed-out landing controls render, `/sign-in` loads GitHub, Google, email, and password options, and protected application pages use Clerk-backed access enforcement.
+- GitHub Actions run `32219403418` — passed in 2m36s: PostgreSQL migration, lint, typecheck, 94 tests, production build, 4 Playwright journeys, and all companion-site checks. The workflow now downloads pinned Chromium without the redundant hosted OS-package installation that had exhausted the previous run's 20-minute limit.
 
 External gate: the configured Clerk instance uses development keys. Public production authentication still requires creating/configuring a Clerk production instance and setting its production keys in the deployment environment; no production-auth success is claimed yet.
 
