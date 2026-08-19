@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { ArrowRight, Check, ShieldCheck, Workflow } from "lucide-react";
 
+import { AuthControls } from "@/components/auth-controls";
+import { isDemoMode } from "@/lib/env";
+
 export default function HomePage() {
+  const clerkEnabled = !isDemoMode() && Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
   return (
     <main>
       <header className="container flex items-center justify-between py-6">
         <Link href="/" className="text-lg font-black tracking-tight">AgentCloud</Link>
-        <Link href="/dashboard" className="button button-secondary">Open dashboard <ArrowRight size={16} /></Link>
+        {clerkEnabled ? <AuthControls /> : <Link href="/dashboard" className="button button-secondary">Open dashboard <ArrowRight size={16} /></Link>}
       </header>
       <section className="container grid min-h-[75vh] items-center gap-12 py-16 lg:grid-cols-[1.1fr_.9fr]">
         <div>

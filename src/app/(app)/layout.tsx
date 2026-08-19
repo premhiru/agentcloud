@@ -1,10 +1,13 @@
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
 import { AppNav } from "@/components/app-nav";
 import { isDemoMode } from "@/lib/env";
 
-export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const demo = isDemoMode() || !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if (!demo) await auth.protect();
+
   return (
     <div className="lg:flex">
       <AppNav />

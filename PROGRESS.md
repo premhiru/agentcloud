@@ -246,3 +246,21 @@ Verification:
 External gates: a production AgentCloud runtime and official Registry publication still require the operator credentials and OAuth checks in `DEPLOYMENT.md` and `docs/MCP_REGISTRY.md`. GitHub social-preview upload requires an authenticated browser settings session. The repository license remains pending the owner’s Apache-2.0 versus MIT choice.
 
 Next: provision operator credentials for the production runtime, verify OAuth from a real MCP host, then run the guarded Registry publication workflow. No credential-independent launch work remains.
+
+### Clerk authentication and open-source licensing
+
+Working: the repository is linked to Clerk application `app_3I7MQibBTXcgmOJHpTxu0yR0bjr` with ignored local development credentials. The Next.js 16 proxy lives under `src/`, includes the API and Clerk matchers, and keeps demo mode credential-free. Authenticated application pages enforce access next to the resource with asynchronous `auth.protect()`. The public landing page exposes clear sign-in and account-creation controls, with dedicated polished sign-in and sign-up routes. The project is licensed under Apache License 2.0, and GitHub now has a verified social-preview image.
+
+Verification:
+
+- `clerk doctor` — passed; the linked application and local development keys are valid.
+- `pnpm lint` — passed with zero warnings.
+- `pnpm exec tsc --noEmit --incremental false` — passed.
+- `pnpm exec vitest run --maxWorkers=1` — passed, 24 files / 94 tests.
+- `pnpm test:mcp` — passed, 3 authenticated protocol lifecycle tests.
+- `pnpm build` — passed; the optimized build includes the Clerk proxy and both auth routes.
+- Browser verification — passed; the signed-out landing controls render, `/sign-in` loads GitHub, Google, email, and password options, and protected application pages use Clerk-backed access enforcement.
+
+External gate: the configured Clerk instance uses development keys. Public production authentication still requires creating/configuring a Clerk production instance and setting its production keys in the deployment environment; no production-auth success is claimed yet.
+
+Next: create the first development user from the open sign-in/sign-up page, then provision the Clerk production instance alongside the remaining operator services in `DEPLOYMENT.md`.
