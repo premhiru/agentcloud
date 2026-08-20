@@ -19,6 +19,34 @@ describe("Worker Compiler", () => {
     expect(result.spec.authority.rules).toHaveLength(1);
   });
 
+  it("normalizes model-proposed authority with deterministic conservative defaults", async () => {
+    const model: CompilerModel = { async propose() { return {
+      name: "Authority test", description: "Tests deterministic authority", instructions: ["Work safely"], triggers: [{ type: "manual" }],
+      capabilityIds: ["gmail.send_email", "gmail.read_message", "gmail.read_message", "slack.post_message"],
+      authorityRules: [
+        { capability: "gmail.send_email", effect: "allow" },
+        { capability: "gmail.read_message", effect: "allow" },
+        { capability: "gmail.read_message", effect: "deny" },
+      ],
+      unsupportedCapabilities: [], warnings: [], questions: [],
+    }; } };
+    const result = await compileWorker({ objective: "Handle external messages with conservative authority" }, model);
+    expect(result.spec.capabilities).toEqual([
+      { capability: "gmail.send_email" },
+      { capability: "gmail.read_message" },
+      { capability: "slack.post_message" },
+    ]);
+    expect(result.spec.authority.rules).toEqual([
+      { capability: "gmail.send_email", effect: "require_approval" },
+      { capability: "gmail.read_message", effect: "deny" },
+      { capability: "slack.post_message", effect: "require_approval" },
+    ]);
+    expect(result.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining("gmail.send_email is high risk"),
+      expect.stringContaining("slack.post_message had no valid authority proposal"),
+    ]));
+  });
+
   it("creates a no-tool worker when no registry capability matches", async () => {
     const result = await compileWorker({ objective: "Think about quarterly planning and summarize the objective" }, new FakeCompilerModel());
     expect(result.spec.capabilities).toEqual([]);

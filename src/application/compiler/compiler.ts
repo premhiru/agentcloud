@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { inboundSalesWorkerSpec } from "@/domain/inbound-sales-worker";
-import { listCapabilities, validateRegisteredCapabilities, type IntegrationProvider } from "@/domain/tool-registry";
-import { parseWorkerSpec, type AuthorityRule, type TriggerSpec, type WorkerSpec } from "@/domain/worker-spec";
+import { getCapability, listCapabilities, validateRegisteredCapabilities, type IntegrationProvider } from "@/domain/tool-registry";
+import { authorityRuleSchema, parseWorkerSpec, type AuthorityRule, type TriggerSpec, type WorkerSpec } from "@/domain/worker-spec";
 
 export const compileWorkerInputSchema = z.object({
   objective: z.string().trim().min(10).max(2_000),
@@ -39,6 +39,42 @@ export type CompilationResult = Readonly<{
   summary: string;
 }>;
 
+type AuthorityNormalization = Readonly<{ rules: AuthorityRule[]; warnings: string[] }>;
+
+const effectPriority: Record<AuthorityRule["effect"], number> = { allow: 0, require_approval: 1, deny: 2 };
+
+/**
+ * Treat model authority as a proposal. The application owns the final,
+ * deterministic safety boundary and emits one explicit rule per grant.
+ */
+export function normalizeProposedAuthority(capabilityIds: readonly string[], proposedRules: readonly unknown[]): AuthorityNormalization {
+  const proposedByCapability = new Map<string, AuthorityRule>();
+  for (const rawRule of proposedRules) {
+    const parsed = authorityRuleSchema.safeParse(rawRule);
+    if (!parsed.success || !capabilityIds.includes(parsed.data.capability)) continue;
+    const current = proposedByCapability.get(parsed.data.capability);
+    if (!current || effectPriority[parsed.data.effect] > effectPriority[current.effect]) proposedByCapability.set(parsed.data.capability, parsed.data);
+  }
+
+  const warnings: string[] = [];
+  const rules = capabilityIds.map((capability): AuthorityRule => {
+    const definition = getCapability(capability);
+    if (!definition) throw new Error("Compiler invariant violated: unregistered capability");
+    const proposed = proposedByCapability.get(capability);
+    if (!proposed) {
+      const effect = definition.effect === "external_communication" ? "require_approval" : "deny";
+      warnings.push(`${capability} had no valid authority proposal and was defaulted to ${effect}.`);
+      return { capability, effect };
+    }
+    if (proposed.effect === "allow" && definition.risk === "high") {
+      warnings.push(`${capability} is high risk and was tightened from allow to require_approval.`);
+      return { ...proposed, effect: "require_approval" };
+    }
+    return proposed;
+  });
+  return { rules, warnings };
+}
+
 export async function compileWorker(input: unknown, model: CompilerModel): Promise<CompilationResult> {
   const request = compileWorkerInputSchema.parse(input);
   const rawProposal = await model.propose({
@@ -49,11 +85,8 @@ export async function compileWorker(input: unknown, model: CompilerModel): Promi
   const proposal = modelProposalSchema.parse(rawProposal);
   const registration = validateRegisteredCapabilities(proposal.capabilityIds);
   const unsupportedCapabilities = [...new Set([...proposal.unsupportedCapabilities, ...registration.unsupported])];
-  const supported = new Set(registration.supported);
-  const authorityRules = proposal.authorityRules
-    .map((rule) => z.object({ capability: z.string(), effect: z.enum(["allow", "deny", "require_approval"]), constraints: z.unknown().optional() }).passthrough().safeParse(rule))
-    .filter((result) => result.success && supported.has(result.data.capability))
-    .map((result) => result.data) as AuthorityRule[];
+  const supportedCapabilities = [...new Set(registration.supported)];
+  const authority = normalizeProposedAuthority(supportedCapabilities, proposal.authorityRules);
 
   const spec = parseWorkerSpec({
     schemaVersion: "1.0",
@@ -62,8 +95,8 @@ export async function compileWorker(input: unknown, model: CompilerModel): Promi
     instructions: proposal.instructions,
     model: { provider: "openai", model: process.env.WORKER_MODEL ?? "gpt-5-mini", maxSteps: 12 },
     triggers: proposal.triggers as TriggerSpec[],
-    capabilities: registration.supported.map((capability) => ({ capability })),
-    authority: { defaultEffect: "deny", rules: authorityRules },
+    capabilities: supportedCapabilities.map((capability) => ({ capability })),
+    authority: { defaultEffect: "deny", rules: authority.rules },
     budget: { monthlyUsd: 50, perRunUsd: 1, maxModelCallsPerRun: 12, maxToolCallsPerRun: 30 },
     memory: { enabled: true, retentionDays: 30 },
     failurePolicy: { maxTransientRetries: 2, onFailure: "notify_owner" },
@@ -83,7 +116,7 @@ export async function compileWorker(input: unknown, model: CompilerModel): Promi
     requiredConnections,
     missingConnections,
     unsupportedCapabilities,
-    warnings: proposal.warnings,
+    warnings: [...proposal.warnings, ...authority.warnings],
     questions: proposal.questions,
     summary: `${spec.identity.name} will use ${spec.capabilities.length} curated capabilities across ${requiredConnections.length} integrations. ${missingConnections.length ? `${missingConnections.length} connection(s) are required before deployment.` : "All required connections are available."}`,
   };

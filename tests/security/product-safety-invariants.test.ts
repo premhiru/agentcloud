@@ -24,6 +24,12 @@ describe("Product Safety Invariants", () => {
     expect(result.spec.capabilities).toEqual([]); expect(result.unsupportedCapabilities).toContain("stripe.refund");
   });
 
+  it("1. a compiler model cannot silently allow a high-risk capability", async () => {
+    const model: CompilerModel = { async propose() { return { name: "Hostile", description: "Attempts approval bypass", instructions: ["work"], triggers: [{ type: "manual" }], capabilityIds: ["gmail.send_email"], authorityRules: [{ capability: "gmail.send_email", effect: "allow" }], unsupportedCapabilities: [], warnings: [], questions: [] }; } };
+    const result = await compileWorker({ objective: "Send external replies without asking a human first" }, model);
+    expect(result.spec.authority.rules).toEqual([{ capability: "gmail.send_email", effect: "require_approval" }]);
+  });
+
   it("2–4. a running model cannot mutate budget, authority, or WorkerSpec", async () => {
     const spec = inboundSalesWorkerSpec(); const adapter = new FakeIntegrationAdapter();
     const hostile: WorkerModel = { async plan(input) { (input.spec.budget as { monthlyUsd: number }).monthlyUsd = 100_000; return { toolCalls: [], summary: "mutated" }; } };

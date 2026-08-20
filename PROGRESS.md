@@ -294,3 +294,19 @@ Verification:
 - `pnpm build` — passed; the optimized build includes the configuration-aware integration route and page.
 
 External gate: real Gmail OAuth requires server-only `COMPOSIO_API_KEY` and `COMPOSIO_AUTH_CONFIG_GMAIL` values from an operator-configured Composio project. Until those credentials exist, the live app intentionally does not offer a nonfunctional Gmail connect button; the deterministic demo remains fully usable without external writes.
+
+### Floot-inspired builder foundation — compiler and proposals (2026-08-20)
+
+Working: AgentCloud now treats model compiler output as an untrusted proposal and applies deterministic authority normalization in application code. Every curated grant receives an explicit rule; missing rules fail closed, duplicate grants/rules are resolved conservatively, and a model-proposed direct allow for high-risk Gmail sending is tightened to approval-required. A pure proposal layer now produces canonical spec hashes, deployment-readiness checks, sorted compiler findings, and deterministic human-readable diffs against an immutable base WorkerSpec.
+
+This is the AgentCloud adaptation of Floot's build loop: proposals are reviewable previews, not deployed state. Missing connections, unsupported capabilities, and unresolved human questions block deployment without preventing the proposal from being inspected and refined. Compiler warnings remain visible without silently expanding authority.
+
+Verification:
+
+- Focused compiler, proposal, and security suites — passed, 3 files / 23 tests.
+- Full unit and security suites — passed, 15 files / 70 tests.
+- Scoped ESLint — passed with zero warnings.
+- `pnpm exec tsc --noEmit --incremental false` — passed.
+- `git diff --check` — passed.
+
+Next: persist tenant-scoped conversational builder sessions with append-only proposals, optimistic revision checks, redaction, and an atomic proposal-to-immutable-version commit boundary.
