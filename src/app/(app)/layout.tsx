@@ -1,12 +1,17 @@
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 import { AppNav } from "@/components/app-nav";
 import { isDemoMode } from "@/lib/env";
 
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const demo = isDemoMode() || !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  if (!demo) await auth.protect();
+  if (!demo) {
+    const session = await auth();
+    if (!session.userId) redirect("/sign-in");
+    if (!session.orgId) redirect("/onboarding");
+  }
 
   return (
     <div className="lg:flex">

@@ -5,12 +5,12 @@ import { ArrowLeft, CheckCircle2, CircleDot } from "lucide-react";
 import { getControlPlane } from "@/application/control-plane";
 import { RunStatusPoller } from "@/components/run-status-poller";
 import { StatusBadge } from "@/components/status-badge";
-import { requireTenantContext } from "@/lib/auth/tenant-context";
+import { requirePageTenantContext } from "@/lib/auth/page-tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const context = await requireTenantContext(); const controlPlane = await getControlPlane(); const run = await controlPlane.getRun(context, id); if (!run) notFound();
+  const { id } = await params; const context = await requirePageTenantContext(); const controlPlane = await getControlPlane(); const run = await controlPlane.getRun(context, id); if (!run) notFound();
   const worker = await controlPlane.getWorker(context, run.workerId);
   return <div className="mx-auto max-w-4xl"><RunStatusPoller status={run.status} /><Link href={`/workers/${run.workerId}`} className="muted inline-flex items-center gap-2 text-sm font-bold"><ArrowLeft size={16} />Back to worker</Link><div className="mt-6 flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">{run.mode === "dry_run" ? "Safe test" : "Live run"}</p><h1 className="mt-2 text-3xl font-black">{worker?.name ?? "Worker run"}</h1><p className="muted mt-2">Run {run.id.slice(0, 8)} · WorkerSpec pinned to {run.workerVersionId.slice(0, 12)}</p></div><StatusBadge status={run.status} /></div>
     {run.mode === "dry_run" && <div className="mt-7 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-900">Dry-run safety was active. Reads used demo fixtures and every write was converted into a “would execute” timeline event.</div>}

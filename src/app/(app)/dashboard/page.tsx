@@ -2,12 +2,12 @@ import Link from "next/link";
 import { ArrowRight, ShieldCheck, Workflow } from "lucide-react";
 
 import { getControlPlane } from "@/application/control-plane";
-import { requireTenantContext } from "@/lib/auth/tenant-context";
+import { requirePageTenantContext } from "@/lib/auth/page-tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const context = await requireTenantContext(); const controlPlane = await getControlPlane(); const workers = await controlPlane.listWorkers(context); const runs = await controlPlane.listRuns(context); const approvals = await controlPlane.listApprovals(context);
+  const context = await requirePageTenantContext(); const controlPlane = await getControlPlane(); const workers = await controlPlane.listWorkers(context); const runs = await controlPlane.listRuns(context); const approvals = await controlPlane.listApprovals(context);
   const values = [workers.filter((worker) => worker.status === "DEPLOYED").length, runs.length, approvals.filter((approval) => approval.status === "PENDING").length];
   return (
     <div className="mx-auto max-w-6xl">

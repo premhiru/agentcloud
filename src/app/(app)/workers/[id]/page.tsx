@@ -7,12 +7,12 @@ import { StatusBadge } from "@/components/status-badge";
 import { VersionControls } from "@/components/version-controls";
 import { WorkerActions } from "@/components/worker-actions";
 import { getCapability } from "@/domain/tool-registry";
-import { requireTenantContext } from "@/lib/auth/tenant-context";
+import { requirePageTenantContext } from "@/lib/auth/page-tenant-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const context = await requireTenantContext(); const controlPlane = await getControlPlane(); const worker = await controlPlane.getWorker(context, id); if (!worker) notFound();
+  const { id } = await params; const context = await requirePageTenantContext(); const controlPlane = await getControlPlane(); const worker = await controlPlane.getWorker(context, id); if (!worker) notFound();
   const version = worker.versions.find((item) => item.id === worker.activeVersionId) ?? worker.versions.at(-1)!;
   const runs = await controlPlane.listRuns(context, id);
   return <div className="mx-auto max-w-6xl"><div className="flex flex-wrap items-start justify-between gap-5"><div><div className="flex items-center gap-3"><p className="eyebrow">Worker · v{version.versionNumber}</p><StatusBadge status={worker.status} /></div><h1 className="mt-3 text-4xl font-black tracking-tight">{worker.name}</h1><p className="muted mt-3 max-w-3xl leading-7">{version.spec.objective}</p></div><WorkerActions workerId={worker.id} status={worker.status} hasUndeployedVersion={worker.versions.at(-1)?.id !== worker.activeVersionId && worker.status === "DEPLOYED"} /></div>

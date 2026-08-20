@@ -265,3 +265,18 @@ Verification:
 External gate: the configured Clerk instance uses development keys. Public production authentication still requires creating/configuring a Clerk production instance and setting its production keys in the deployment environment; no production-auth success is claimed yet.
 
 Next: create the first development user from the open sign-in/sign-up page, then provision the Clerk production instance alongside the remaining operator services in `DEPLOYMENT.md`.
+
+### Authenticated tenant onboarding (2026-08-20)
+
+Working: signed-in users without an active Clerk organization now reach a dedicated organization create/select screen instead of a server error. UI pages use a page-only tenant resolver that redirects this recoverable onboarding state, while API and MCP tenant resolution remain default-deny. After organization creation, Clerk organization, user, and membership records synchronize into PostgreSQL before the dashboard loads.
+
+Verification:
+
+- Focused organization-routing tests — passed, 8 tests across the tenant-page and proxy suites.
+- `pnpm lint` — passed with zero warnings.
+- `pnpm exec tsc --noEmit --incremental false` — passed.
+- Full deterministic suite — passed, 25 files / 97 tests.
+- `pnpm build` — passed; the optimized build includes `/onboarding` and every authenticated application route.
+- Signed-in browser verification — `/approvals` redirects to `/onboarding`; organization creation returns to `/dashboard` with HTTP 200; PostgreSQL contains exactly one synchronized organization, user, and membership for the new account.
+
+Local development now runs against a dedicated PostgreSQL 16 container with all 17 migrations applied. Production still requires an operator-managed PostgreSQL service and Clerk production instance; the local container and Clerk development keys are not presented as deployment verification.
