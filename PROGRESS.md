@@ -310,3 +310,22 @@ Verification:
 - `git diff --check` — passed.
 
 Next: persist tenant-scoped conversational builder sessions with append-only proposals, optimistic revision checks, redaction, and an atomic proposal-to-immutable-version commit boundary.
+
+### Conversational builder persistence (2026-08-20)
+
+Working: AgentCloud now has a separate tenant-owned builder aggregate rather than storing conversation state in WorkerSpec. Builder sessions retain an optional immutable base version, append-only redacted user messages, and append-only validated proposal revisions. Optimistic revision checks reject stale concurrent edits. Sessions can be abandoned but closed history cannot be modified. PostgreSQL stores the full proposal together with explicit `spec_json` and `spec_hash` integrity fields, and revalidates all representations on read.
+
+Security boundaries: every repository operation requires the organization ID; creator membership and optional worker/base-version references are validated inside that tenant; credential-shaped message text is redacted before any write; unknown capabilities, forged hashes, corrupt persisted specs, and direct allow rules for high-risk capabilities fail closed. Builder state remains distinct from worker versions, deployed state, runs, integrations, and runtime execution.
+
+Verification:
+
+- Builder state-machine and PostgreSQL/PGlite migration suites — passed, 3 files / 10 tests.
+- Full deterministic suite — passed, 28 files / 113 tests.
+- `pnpm lint` — passed with zero warnings.
+- `pnpm exec tsc --noEmit --incremental false` — passed.
+- Local PostgreSQL migration — passed; `builder_sessions`, `builder_messages`, and `builder_proposals` exist and migration count is 4.
+- `git diff --check` — passed.
+
+Observed non-product flake: the first broad run encountered a transient Windows/OneDrive `EPERM` while the existing demo store atomically renamed its JSON file. The exact canonical acceptance test passed immediately in isolation, and the complete suite then passed cleanly when rerun alone.
+
+Next: add authenticated builder services/APIs and atomically commit the exact latest proposal hash into a new immutable worker version without changing an existing deployment.

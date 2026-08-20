@@ -58,6 +58,17 @@ export const toolExecutionStatusEnum = pgEnum("tool_execution_status", [
   "DRY_RUN",
   "OUTCOME_UNKNOWN",
 ]);
+export const builderSessionStatusEnum = pgEnum("builder_session_status", [
+  "OPEN",
+  "READY",
+  "COMMITTED",
+  "ABANDONED",
+]);
+export const builderMessageRoleEnum = pgEnum("builder_message_role", [
+  "user",
+  "assistant",
+  "system",
+]);
 
 export const organizations = pgTable("organizations", {
   id: id(),
@@ -120,6 +131,61 @@ export const workerVersions = pgTable(
   (table) => [
     uniqueIndex("worker_versions_worker_number_uidx").on(table.workerId, table.versionNumber),
     index("worker_versions_org_worker_idx").on(table.organizationId, table.workerId),
+  ],
+);
+
+export const builderSessions = pgTable(
+  "builder_sessions",
+  {
+    id: id(),
+    organizationId: organizationId().references(() => organizations.id, { onDelete: "cascade" }),
+    workerId: uuid("worker_id").references(() => workers.id, { onDelete: "set null" }),
+    baseWorkerVersionId: uuid("base_worker_version_id").references(() => workerVersions.id, { onDelete: "set null" }),
+    status: builderSessionStatusEnum("status").default("OPEN").notNull(),
+    revision: integer("revision").default(0).notNull(),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    committedWorkerVersionId: uuid("committed_worker_version_id").references(() => workerVersions.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("builder_sessions_org_status_updated_idx").on(table.organizationId, table.status, table.updatedAt),
+  ],
+);
+
+export const builderMessages = pgTable(
+  "builder_messages",
+  {
+    id: id(),
+    organizationId: organizationId().references(() => organizations.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").notNull().references(() => builderSessions.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    role: builderMessageRoleEnum("role").notNull(),
+    content: text("content").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("builder_messages_session_sequence_uidx").on(table.sessionId, table.sequence),
+    index("builder_messages_org_session_idx").on(table.organizationId, table.sessionId),
+  ],
+);
+
+export const builderProposals = pgTable(
+  "builder_proposals",
+  {
+    id: id(),
+    organizationId: organizationId().references(() => organizations.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").notNull().references(() => builderSessions.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    specJson: jsonb("spec_json").$type<Record<string, unknown>>().notNull(),
+    specHash: text("spec_hash").notNull(),
+    proposalJson: jsonb("proposal_json").$type<Record<string, unknown>>().notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("builder_proposals_session_revision_uidx").on(table.sessionId, table.revision),
+    index("builder_proposals_org_session_idx").on(table.organizationId, table.sessionId),
+    index("builder_proposals_org_spec_hash_idx").on(table.organizationId, table.specHash),
   ],
 );
 

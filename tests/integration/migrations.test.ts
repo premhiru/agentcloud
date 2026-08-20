@@ -16,7 +16,7 @@ describe("production database migrations", () => {
     const tables = await client.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'public'");
     const names = new Set(tables.rows.map((row) => row.table_name));
     expect(names).toEqual(new Set([
-      "approvals", "audit_events", "connections", "memory_items", "organization_memberships", "organizations", "rate_limit_buckets", "run_steps", "runs", "runtime_deployments", "tool_executions", "usage_events", "users", "webhook_events", "worker_triggers", "worker_versions", "workers",
+      "approvals", "audit_events", "builder_messages", "builder_proposals", "builder_sessions", "connections", "memory_items", "organization_memberships", "organizations", "rate_limit_buckets", "run_steps", "runs", "runtime_deployments", "tool_executions", "usage_events", "users", "webhook_events", "worker_triggers", "worker_versions", "workers",
     ]));
   });
 });
