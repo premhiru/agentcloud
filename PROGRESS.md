@@ -387,3 +387,22 @@ Verification:
 - `git diff --check` — passed; only expected Windows line-ending notices were emitted.
 
 Next: align the repository documentation and public deterministic demo with the conversational builder lifecycle, then run the complete release gate.
+
+### Conversational product documentation and public demo (2026-08-20)
+
+Working: the Stripe-inspired repository README, architecture, security, deployment, MCP registry, environment template, and launch kit now document the complete Describe → Simulate safely → Govern → Deploy immutably → Observe/approve → Refine/rollback loop. They distinguish proposal revisions from immutable WorkerVersions, describe all five builder MCP tools and their least-privilege scopes/limits, enumerate the exact nine curated capabilities, document demo-versus-production persistence, and state every remaining operator-credentialed verification without implying live vendor success.
+
+The companion product site now leads with conversational worker building and an authenticated MCP control surface. Its deterministic browser demo starts from a bounded objective, generates and refines a proposal, exposes readiness, default-deny authority and a canonical hash, saves without deploying, suppresses all writes in a safe test, explicitly deploys, pauses for the exact email approval, resumes or rejects the same run, pauses/resumes the worker, creates a new version without changing the active deployment, deploys it, and rolls back. State is device-local and the page states clearly that it does not connect to vendor accounts or execute external writes.
+
+The Sites workflow published version 4 to the existing public origin at `https://agentcloud-control-plane.premhiru.chatgpt.site`. The landing page and `/demo` both return HTTP 200 with the new builder and MCP content. A purpose-built social preview represents the builder → governed WorkerSpec → human approval sequence without combining approval and deployment.
+
+Verification:
+
+- Companion Sites production build — passed; vinext emitted both `/` and `/demo`.
+- Server-rendered site checks — passed, 3/3.
+- Companion site ESLint and TypeScript validation — passed.
+- Post-deployment HTTP smoke check — passed for landing and demo; builder, MCP, GitHub, and generate-proposal content are present.
+- Repository Markdown-link resolution and environment-key uniqueness checks — passed.
+- `git diff --check` — passed; only expected Windows line-ending notices were emitted.
+
+Next: run the final root release gate: lint, typecheck, all deterministic unit/integration/security/MCP suites, optimized production build, and critical Playwright lifecycle journeys.
