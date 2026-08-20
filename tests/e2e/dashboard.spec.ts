@@ -20,9 +20,11 @@ test("designs, saves, and safely tests a worker", async ({ page }) => {
 test("deploys, pauses, and resumes from real controls", async ({ page }) => {
   await page.goto("/workers/worker_inbound_sales");
   const deploy = page.getByRole("button", { name: "Deploy" });
+  const pause = page.getByRole("button", { name: "Pause" });
+  await expect(deploy.or(pause)).toBeVisible();
   if (await deploy.isVisible()) await deploy.click();
-  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(pause).toBeVisible();
+  await pause.click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
@@ -31,8 +33,10 @@ test("deploys, pauses, and resumes from real controls", async ({ page }) => {
 test("runs the canonical worker through approval and resume", async ({ page }) => {
   await page.goto("/workers/worker_inbound_sales");
   const deploy = page.getByRole("button", { name: "Deploy" });
+  const runNow = page.getByRole("button", { name: "Run now" });
+  await expect(deploy.or(runNow)).toBeVisible();
   if (await deploy.isVisible()) await deploy.click();
-  await page.getByRole("button", { name: "Run now" }).click();
+  await runNow.click();
   await expect(page).toHaveURL(/\/runs\//);
   const runUrl = page.url();
   const runId = new URL(runUrl).pathname.split("/").at(-1)!;
