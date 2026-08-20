@@ -119,6 +119,7 @@ describe("PostgresBuilderProposalCommitter", () => {
       ));
     expect(audit).toHaveLength(1);
     expect(audit[0]).toMatchObject({
+      actorType: "user",
       actorId: userA,
       action: "worker.created_from_builder",
       targetType: "worker",
@@ -128,6 +129,38 @@ describe("PostgresBuilderProposalCommitter", () => {
         versionNumber: 1,
         specHash: readyProposal.specHash,
       },
+    });
+  });
+
+  it("records MCP proposal commits with an MCP audit actor", async () => {
+    const session = await repository.create({ organizationId: organizationA, createdBy: userA });
+    const readyProposal = proposal();
+    const ready = await repository.appendProposal({
+      organizationId: organizationA,
+      sessionId: session.id,
+      expectedRevision: 0,
+      userMessage: "Commit from the authenticated MCP",
+      proposal: readyProposal,
+    });
+    const mcpCommitter = new PostgresBuilderProposalCommitter(database, "mcp");
+    const result = await mcpCommitter.commit({
+      organizationId: organizationA,
+      sessionId: session.id,
+      expectedRevision: ready.revision,
+      expectedSpecHash: readyProposal.specHash,
+    });
+
+    const [audit] = await database
+      .select()
+      .from(schema.auditEvents)
+      .where(and(
+        eq(schema.auditEvents.organizationId, organizationA),
+        eq(schema.auditEvents.targetId, result.workerId),
+      ));
+    expect(audit).toMatchObject({
+      actorType: "mcp",
+      actorId: userA,
+      action: "worker.created_from_builder",
     });
   });
 

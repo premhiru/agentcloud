@@ -369,3 +369,21 @@ Verification:
 - `pnpm lint` and `pnpm typecheck` — passed with zero warnings/errors before the final production build; the build repeated full TypeScript validation after the integrated UI changes.
 
 Next: expose the same persistent builder session lifecycle and stable browser continuation links through the authenticated AgentCloud MCP while preserving all existing one-shot tools for compatibility.
+
+### Authenticated MCP builder lifecycle (2026-08-20)
+
+Working: the authenticated AgentCloud MCP now exposes persistent `start_worker_builder`, `get_worker_builder`, `refine_worker_builder`, `commit_worker_builder`, and `abandon_worker_builder` tools alongside every existing compatibility tool. Builder inputs are strict and bounded; organization and user identity are derived only from verified OAuth context. Read and write operations retain least-privilege `workers:read` / `workers:write` scopes, while deployment remains separately gated by `workers:deploy`.
+
+MCP clients receive the validated latest proposal, readiness, diff, canonical hash, summarized proposal history, and stable browser continuation paths. Responses omit tenant IDs, creator IDs, raw stored messages, secret-shaped values, and the internal constraints envelope. Absolute URLs are emitted only from a validated server-configured HTTPS origin, with localhost HTTP allowed for development. Unknown compiler, database, and vendor failures are reduced to a stable public builder error.
+
+Exact-hash commit creates one immutable DRAFT or READY version and never deploys it. A stale revision, wrong hash, duplicate commit, or closed session fails without creating another version. Existing-worker builder sessions use the latest saved immutable version as their base; committing a refinement preserves a deployed worker's active version until a separate deploy or rollback. PostgreSQL audit events record MCP commits with actor type `mcp`.
+
+Verification:
+
+- Authenticated MCP protocol suite — passed, 3/3 tests, covering start/get/refine, scope denial, redaction, disconnect/reconnect, stale revision, wrong hash, exact commit, duplicate commit, stable links, safe test, deploy, approval pause/resume in the same run, pause/resume, v2 refinement, rollback, and abandon.
+- PostgreSQL/PGlite builder commit suite — passed, 6/6 tests, including tenant-scoped atomic commit, deployed-version preservation, corruption rollback, commit-once behavior, and MCP audit actor attribution.
+- Full deterministic suite — passed, 32 files / 133 tests.
+- `pnpm lint` and `pnpm typecheck` — passed with zero warnings/errors.
+- `git diff --check` — passed; only expected Windows line-ending notices were emitted.
+
+Next: align the repository documentation and public deterministic demo with the conversational builder lifecycle, then run the complete release gate.

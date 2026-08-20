@@ -61,6 +61,9 @@ export async function getBuilderApplication(context: TenantContext): Promise<Bui
     organizationId: tenant.organizationId,
     userId: tenant.userId,
     service,
-    committer: new PostgresBuilderProposalCommitter(database),
+    committer: new PostgresBuilderProposalCommitter(
+      database,
+      context.source === "mcp" ? "mcp" : "user",
+    ),
   };
 }

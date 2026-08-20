@@ -16,7 +16,10 @@ import {
 const maximumPostgresInteger = 2_147_483_647;
 
 export class PostgresBuilderProposalCommitter implements BuilderProposalCommitter {
-  constructor(private readonly database: BuilderDatabase = getDatabase()) {}
+  constructor(
+    private readonly database: BuilderDatabase = getDatabase(),
+    private readonly actorType: "user" | "mcp" = "user",
+  ) {}
 
   async commit(input: CommitBuilderProposalInput): Promise<BuilderCommitResult> {
     return this.database.transaction(async (transaction) => {
@@ -135,7 +138,7 @@ export class PostgresBuilderProposalCommitter implements BuilderProposalCommitte
 
       await transaction.insert(schema.auditEvents).values({
         organizationId: input.organizationId,
-        actorType: "user",
+        actorType: this.actorType,
         actorId: current.createdBy,
         action: createdWorker ? "worker.created_from_builder" : "worker.version_created_from_builder",
         targetType: "worker",
