@@ -24,7 +24,7 @@ function makeClient(token: string) {
 }
 
 function output(result: Awaited<ReturnType<Client["callTool"]>>): Record<string, unknown> {
-  expect(result.isError).not.toBe(true);
+  expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
   expect(result.structuredContent).toBeTypeOf("object");
   return result.structuredContent as Record<string, unknown>;
 }

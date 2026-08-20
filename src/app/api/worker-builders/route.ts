@@ -3,13 +3,21 @@ import { z } from "zod";
 
 import { getBuilderApplication } from "@/application/builder";
 import { builderErrorResponse } from "@/app/api/worker-builders/error-response";
+import { getControlPlane } from "@/application/control-plane";
 import { requireTenantContext } from "@/lib/auth/tenant-context";
 import { enforceRateLimit, RateLimitExceededError } from "@/lib/rate-limit";
 
-const startSchema = z.object({
-  objective: z.string().trim().min(10).max(2_000),
-  constraints: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
-}).strict();
+const constraints = z.array(z.string().trim().min(1).max(500)).max(20).optional();
+const startSchema = z.union([
+  z.object({
+    objective: z.string().trim().min(10).max(2_000),
+    constraints,
+  }).strict(),
+  z.object({
+    workerId: z.string().trim().min(1).max(128),
+    constraints,
+  }).strict(),
+]);
 
 export async function POST(request: Request) {
   const context = await requireTenantContext();
@@ -41,11 +49,25 @@ export async function POST(request: Request) {
 
   try {
     const application = await getBuilderApplication(context);
+    const existing = "workerId" in parsed.data
+      ? await (await getControlPlane()).getWorker(context, parsed.data.workerId)
+      : undefined;
+    if ("workerId" in parsed.data && !existing) {
+      return NextResponse.json({ code: "WORKER_NOT_FOUND" }, { status: 404 });
+    }
+    const baseVersion = existing?.versions.at(-1);
     const session = await application.service.start({
       organizationId: application.organizationId,
       userId: application.userId,
-      objective: parsed.data.objective,
+      objective: "objective" in parsed.data
+        ? parsed.data.objective
+        : baseVersion?.spec.objective ?? "",
       constraints: parsed.data.constraints,
+      ...(existing && baseVersion ? {
+        workerId: existing.id,
+        baseWorkerVersionId: baseVersion.id,
+        baseSpec: baseVersion.spec,
+      } : {}),
     });
     return NextResponse.json(
       { session, builderPath: `/workers/build/${session.id}` },

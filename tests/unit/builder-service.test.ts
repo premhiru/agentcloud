@@ -7,6 +7,7 @@ import {
   type CompilerModel,
 } from "@/application/compiler/compiler";
 import type { IntegrationProvider } from "@/domain/tool-registry";
+import { inboundSalesWorkerSpec } from "@/domain/inbound-sales-worker";
 
 type ModelInput = Parameters<CompilerModel["propose"]>[0];
 
@@ -96,6 +97,28 @@ describe("BuilderService", () => {
       "Only handle enquiries from the website",
       "Route enterprise leads to the sales manager",
       "Label qualified leads as priority",
+    ]);
+  });
+
+  it("anchors an existing worker session to its immutable base version", async () => {
+    const { model, service } = fixture(["gmail", "hubspot", "slack"]);
+    const baseSpec = inboundSalesWorkerSpec();
+    const started = await service.start({
+      organizationId: "org_a",
+      userId: "user_a",
+      objective,
+      workerId: "worker_a",
+      baseWorkerVersionId: "version_a",
+      baseSpec,
+    });
+
+    expect(started).toMatchObject({
+      workerId: "worker_a",
+      baseWorkerVersionId: "version_a",
+    });
+    expect(model.calls[0]?.baseSpec).toEqual(baseSpec);
+    expect(started.proposals[0]?.proposal.diff).not.toEqual([
+      expect.objectContaining({ path: "$", kind: "added" }),
     ]);
   });
 

@@ -1,11 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("creates and safely tests a worker", async ({ page }) => {
+test("designs, saves, and safely tests a worker", async ({ page }) => {
   await page.goto("/workers/new");
   await expect(page.getByRole("heading", { name: "Start with the outcome" })).toBeVisible();
-  await page.getByRole("button", { name: "Create draft" }).click();
-  await expect(page.getByRole("heading", { name: "Inbound Sales Guardian" })).toBeVisible();
-  await expect(page.getByText("What this worker may do")).toBeVisible();
+  await page.getByRole("button", { name: "Design worker" }).click();
+  await expect(page).toHaveURL(/\/workers\/build\//, { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Inbound Sales Guardian" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Explicit permission, default deny" })).toBeVisible();
+  await page.getByRole("button", { name: "Save version and review" }).click();
+  await expect(page).toHaveURL(/\/workers\/(?!build\/)[^/]+$/, { timeout: 30_000 });
+  await expect(page.getByText("Worker Studio")).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Test safely" }).click();
   await expect(page).toHaveURL(/\/runs\//, { timeout: 30_000 });
@@ -46,11 +50,19 @@ test("runs the canonical worker through approval and resume", async ({ page }) =
 
 test("creates an immutable worker version and rolls back", async ({ page }) => {
   await page.goto("/workers/worker_inbound_sales");
-  await expect(page.getByText("Active").first()).toBeVisible();
-  await page.getByLabel("Objective for next version").fill("Qualify inbound sales enquiries, update the CRM, and follow up safely with human approval");
-  await page.waitForLoadState("networkidle");
-  await page.getByRole("button", { name: "Create new version" }).click();
-  await expect(page.getByText("Version 2", { exact: true })).toBeVisible({ timeout: 30_000 });
+  const initialDeploy = page.getByRole("button", { name: "Deploy", exact: true });
+  if (await initialDeploy.isVisible()) await initialDeploy.click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Improve worker" }).click();
+  await expect(page).toHaveURL(/\/workers\/build\//, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "No changes to save" }).first()).toBeDisabled();
+  await page.getByLabel("What should change?").fill("Require human approval before every external follow-up and explain that guardrail clearly.");
+  await page.getByRole("button", { name: "Revise proposal" }).click();
+  await expect(page.getByText("AgentCloud · proposal 2")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Save version and review" }).click();
+  await expect(page).toHaveURL(/\/workers\/worker_inbound_sales$/, { timeout: 30_000 });
+  await expect(page.locator("#versions").getByText("Version 2", { exact: true })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Deploy latest" }).click();
   await page.getByRole("button", { name: "Roll back to version 1" }).click();
   await expect(page.getByRole("button", { name: "Roll back to version 2" })).toBeVisible();

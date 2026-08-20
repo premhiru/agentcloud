@@ -9,6 +9,7 @@ import {
   type BuilderSessionRepository,
 } from "@/application/builder/session";
 import type { IntegrationProvider } from "@/domain/tool-registry";
+import type { WorkerSpec } from "@/domain/worker-spec";
 
 const MAX_OBJECTIVE_LENGTH = 2_000;
 const MAX_CONSTRAINT_LENGTH = 500;
@@ -25,6 +26,9 @@ export type StartBuilderInput = Readonly<{
   userId: string;
   objective: string;
   constraints?: readonly string[];
+  workerId?: string;
+  baseWorkerVersionId?: string;
+  baseSpec?: WorkerSpec;
 }>;
 
 export type GetBuilderInput = Readonly<{
@@ -125,11 +129,14 @@ export class BuilderService {
       objective,
       constraints,
       connectedIntegrations: connections,
+      baseSpec: input.baseSpec,
     }, this.model);
-    const proposal = createWorkerProposal(compilation);
+    const proposal = createWorkerProposal(compilation, input.baseSpec);
     const session = await this.repository.create({
       organizationId: input.organizationId,
       createdBy: input.userId,
+      workerId: input.workerId,
+      baseWorkerVersionId: input.baseWorkerVersionId,
     });
     return this.repository.appendProposal({
       organizationId: input.organizationId,

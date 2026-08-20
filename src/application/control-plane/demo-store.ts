@@ -13,6 +13,23 @@ import { MemoryToolExecutionRepository, type ToolExecutionRecord } from "@/runti
 import { MemoryRunnerJournal, resumeWorkerFromCheckpoint, runWorker, type RunnerCheckpoint, type RunnerStep } from "@/runtime/worker-runner";
 import type { RunWorkerPayload } from "@/runtime/types";
 
+const transientFileCodes = new Set(["EACCES", "EBUSY", "EPERM"]);
+const renameRetryDelaysMs = [10, 25, 50, 100, 200, 400, 800] as const;
+const sleepBuffer = new Int32Array(new SharedArrayBuffer(4));
+
+function renameDemoState(source: string, destination: string): void {
+  for (const [attempt, delayMs] of renameRetryDelaysMs.entries()) {
+    try {
+      renameSync(source, destination);
+      return;
+    } catch (error) {
+      const code = error instanceof Error && "code" in error ? String(error.code) : "";
+      if (!transientFileCodes.has(code) || attempt === renameRetryDelaysMs.length - 1) throw error;
+      Atomics.wait(sleepBuffer, 0, 0, delayMs);
+    }
+  }
+}
+
 export type UiWorkerVersion = { id: string; versionNumber: number; spec: WorkerSpec; specHash: string; createdAt: string; deployedAt?: string };
 export type UiRunStep = { sequence: number; type: string; status: string; summary: string; at: string };
 export type UiRun = { id: string; organizationId: string; workerId: string; workerVersionId: string; mode: "dry_run" | "live"; triggerType: "manual" | "schedule" | "webhook"; status: string; createdAt: string; estimatedCostUsd: number; steps: UiRunStep[] };
@@ -52,7 +69,7 @@ class DemoControlPlaneStore {
     mkdirSync(dirname(this.dataPath), { recursive: true });
     const temporaryPath = `${this.dataPath}.${process.pid}.${randomUUID()}.tmp`;
     writeFileSync(temporaryPath, JSON.stringify({ workers: this.workers, runs: this.runs, approvals: this.approvals, continuations: this.continuations, auditEvents: this.auditEvents }), "utf8");
-    renameSync(temporaryPath, this.dataPath);
+    renameDemoState(temporaryPath, this.dataPath);
   }
 
   private audit(context: TenantContext, action: string, targetType: string, targetId: string, metadata: Record<string, unknown> = {}): void {

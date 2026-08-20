@@ -349,3 +349,23 @@ Verification:
 - `git diff --check` — passed.
 
 Next: replace the one-shot creation experience with the persistent Worker Studio: conversational refinement, proposal diffs and readiness, safe-test continuation, deployment controls, worker-scoped runs, approval visibility, and immutable version history in one coherent workspace.
+
+### Conversational Worker Studio (2026-08-20)
+
+Working: worker creation is now an outcome-first, persistent design conversation rather than a one-shot form. Each turn displays the user's bounded redacted instruction beside a validated proposal; the workspace shows compiler questions and warnings, connection blockers, readiness checks, instructions, budgets, explicit default-deny Agent Authority, deterministic changes from the immutable base, and the canonical WorkerSpec hash. Saving requires the current revision and exact hash, creates an immutable version, and never deploys or runs it. Existing workers enter the same builder from Improve worker, anchored to their latest saved version; an unchanged proposal cannot create a no-op version.
+
+The worker detail is now a unified Worker Studio with a Define → Govern → Test → Deploy → Operate lifecycle rail; active version and spec hash; real required-provider status derived from granted capabilities; explicit authority and constraints; pre-deployment checks; safe-test history; worker-scoped run timelines; operational budgets; immutable versions; and rollback. The old cramped objective textarea was removed, so new versions go through the reviewable builder. Deployment is disabled with an explanation when the candidate version fails readiness, while the existing deterministic Policy Engine and deployment validation remain authoritative.
+
+Navigation now centers Home, Workers, Runs, Approvals, and Connections, with active-route semantics and a real pending-approval badge. Audit and Settings remain available as secondary workspace navigation. `/runs` provides a real tenant-scoped global operational history; `/connections` is canonical while `/integrations` remains a compatible redirect. Dashboard and worker-list values now come from actual runs and estimated cost, using honest empty values instead of placeholders.
+
+Reliability: the deterministic file-backed demo retains atomic writes and now retries only bounded transient Windows `EPERM`, `EACCES`, or `EBUSY` rename failures. This removed the repeatedly observed OneDrive race without changing the PostgreSQL production path or falling back to non-atomic writes.
+
+Verification:
+
+- Full deterministic unit/integration/security/acceptance/MCP suite — passed, 32 files / 132 tests.
+- Focused builder, navigation, and readiness suites — passed, 3 files / 13 tests.
+- Optimized Next.js production build — passed cleanly and includes `/workers/build/[id]`, `/runs`, `/connections`, and all builder APIs.
+- Production-server Chromium journeys — passed, 4/4: conversational design/save/safe-test; deploy/pause/resume; live approval pause/resume in the same run; and improve/save v2/deploy latest/rollback.
+- `pnpm lint` and `pnpm typecheck` — passed with zero warnings/errors before the final production build; the build repeated full TypeScript validation after the integrated UI changes.
+
+Next: expose the same persistent builder session lifecycle and stable browser continuation links through the authenticated AgentCloud MCP while preserving all existing one-shot tools for compatibility.
