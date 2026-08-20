@@ -406,3 +406,19 @@ Verification:
 - `git diff --check` — passed; only expected Windows line-ending notices were emitted.
 
 Next: run the final root release gate: lint, typecheck, all deterministic unit/integration/security/MCP suites, optimized production build, and critical Playwright lifecycle journeys.
+
+### Floot-inspired AgentCloud transformation — final release gate (2026-08-20)
+
+Working: AgentCloud now provides one coherent persistent-worker loop through both the authenticated dashboard and MCP: describe an outcome conversationally; review deterministic proposal revisions, questions, warnings, connections, authority, budgets, diffs, and exact hashes; save an immutable version without deploying; test through the real runner with writes suppressed; deploy explicitly; trigger and observe a version-pinned run; pause for an exact approval request; resume the same checkpoint; pause/resume the worker; refine from an immutable base without changing the active deployment; deploy a later version; and roll back. PostgreSQL production state persists independently of the initiating AI conversation, while the credential-free demo path states its narrower persistence and vendor-fixture boundaries.
+
+Final verification:
+
+- `pnpm lint` — passed with zero warnings.
+- `pnpm typecheck` — passed.
+- Full deterministic Vitest suite — passed, 32 files / 133 tests. This includes compiler/proposal safety, builder state and optimistic concurrency, PostgreSQL migrations and atomic commits, tenant isolation, default-deny policy, dry-run write suppression, approval hashing/pause/resume, duplicate-side-effect prevention, checkpoint/version pinning, authenticated MCP reconnect/commit/lifecycle, signed webhooks, runtime abstraction, and integration abstraction.
+- Optimized Next.js 16 production build — passed after moving one recoverable stale `.next` directory out of the OneDrive workspace following a transient Windows `EPERM`; the clean build includes every builder API, `/workers/build/[id]`, Worker Studio, global Runs, Connections, Approvals, and `/api/mcp`.
+- Production-server Playwright suite — passed, 4/4 Chromium journeys: conversational design/save/safe-test; explicit deploy/pause/resume; live approval pause/resume in the same run; improve/save v2/deploy latest/rollback.
+- Companion Sites validation — passed: production vinext build, 3/3 rendered-route checks, ESLint, TypeScript, public deployment, and post-deployment HTTP smoke checks.
+- Git worktree — clean after milestone commits.
+
+Credential-dependent production checks remain exactly those documented in `DEPLOYMENT.md`: operator-owned production PostgreSQL, Clerk, OpenAI, Trigger.dev, Composio Gmail/HubSpot/Slack, and application-hosting configuration. No live third-party write, OAuth consent, Trigger.dev Cloud execution, or main AgentCloud application deployment is claimed without those credentials.
