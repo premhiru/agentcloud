@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ComposioIntegrationAdapter, MemoryConnectionReferenceRepository, composioToolMap, type ComposioGateway } from "@/integrations/composio-adapter";
+import { ComposioIntegrationAdapter, MemoryConnectionReferenceRepository, composioToolMap, getComposioConfiguration, type ComposioGateway } from "@/integrations/composio-adapter";
 
 const connected = { organizationId: "org_1", provider: "gmail" as const, connectedAccountId: "ca_gmail", status: "CONNECTED" as const, displayName: "Work Gmail" };
 const context = { organizationId: "org_1", workerId: "worker_1", workerVersionId: "version_1", runId: "run_1", modelToolCallId: "call_1", mode: "live" as const };
@@ -8,6 +8,22 @@ const context = { organizationId: "org_1", workerId: "worker_1", workerVersionId
 function gateway(execute: ComposioGateway["execute"]): ComposioGateway { return { execute, async link() { return { id: "link_1", redirectUrl: "https://connect.example/secure" }; } }; }
 
 describe("Composio integration adapter", () => {
+  it("reports missing OAuth configuration without exposing credential values", () => {
+    const previousApiKey = process.env.COMPOSIO_API_KEY;
+    const previousGmailConfig = process.env.COMPOSIO_AUTH_CONFIG_GMAIL;
+    try {
+      delete process.env.COMPOSIO_API_KEY;
+      delete process.env.COMPOSIO_AUTH_CONFIG_GMAIL;
+      expect(getComposioConfiguration("gmail")).toEqual({ configured: false, missing: ["COMPOSIO_API_KEY", "COMPOSIO_AUTH_CONFIG_GMAIL"], authConfigEnvKey: "COMPOSIO_AUTH_CONFIG_GMAIL" });
+      process.env.COMPOSIO_API_KEY = "test-secret-value";
+      process.env.COMPOSIO_AUTH_CONFIG_GMAIL = "auth_config_test";
+      expect(getComposioConfiguration("gmail")).toEqual({ configured: true, missing: [], authConfigEnvKey: "COMPOSIO_AUTH_CONFIG_GMAIL" });
+    } finally {
+      if (previousApiKey === undefined) delete process.env.COMPOSIO_API_KEY; else process.env.COMPOSIO_API_KEY = previousApiKey;
+      if (previousGmailConfig === undefined) delete process.env.COMPOSIO_AUTH_CONFIG_GMAIL; else process.env.COMPOSIO_AUTH_CONFIG_GMAIL = previousGmailConfig;
+    }
+  });
+
   it("maps every curated capability and no destructive tool", () => {
     expect(Object.keys(composioToolMap)).toHaveLength(9);
     expect(Object.values(composioToolMap).some((slug) => /DELETE|ARCHIVE|REMOVE/.test(slug))).toBe(false);

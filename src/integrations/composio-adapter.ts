@@ -16,6 +16,21 @@ export const composioToolMap = {
   "slack.post_message": "SLACK_CHAT_POST_MESSAGE",
 } as const;
 
+export type ComposioConfigurationStatus = Readonly<{
+  configured: boolean;
+  missing: readonly string[];
+  authConfigEnvKey: string;
+}>;
+
+export function getComposioConfiguration(provider: IntegrationProvider): ComposioConfigurationStatus {
+  const authConfigEnvKey = `COMPOSIO_AUTH_CONFIG_${provider.toUpperCase()}`;
+  const missing = [
+    ...(!process.env.COMPOSIO_API_KEY ? ["COMPOSIO_API_KEY"] : []),
+    ...(!process.env[authConfigEnvKey] ? [authConfigEnvKey] : []),
+  ];
+  return { configured: missing.length === 0, missing, authConfigEnvKey };
+}
+
 export type ConnectionReference = Readonly<{ organizationId: string; provider: IntegrationProvider; connectedAccountId: string; status: "CONNECTED" | "EXPIRED" | "REVOKED" | "ERROR"; displayName: string }>;
 export interface ConnectionReferenceRepository { get(input: Readonly<{ organizationId: string; provider: IntegrationProvider }>): Promise<ConnectionReference | undefined>; }
 export interface ComposioGateway { execute(slug: string, body: { userId: string; connectedAccountId: string; arguments: Record<string, unknown> }): Promise<{ successful?: boolean; data?: unknown; error?: unknown; logId?: string }>; link(userId: string, authConfigId: string, options: { callbackUrl: string }): Promise<{ id: string; redirectUrl?: string | null }>; get?(id: string): Promise<{ id: string; status: string; toolkit: { slug: string }; alias?: string | null }>; }
@@ -80,8 +95,9 @@ export class ComposioIntegrationAdapter implements IntegrationAdapter {
 }
 
 export async function createConnectionLink(input: Readonly<{ organizationId: string; provider: IntegrationProvider; callbackUrl: string; gateway?: ComposioGateway }>) {
-  const envKey = `COMPOSIO_AUTH_CONFIG_${input.provider.toUpperCase()}`; const authConfigId = process.env[envKey];
-  if (!authConfigId) throw new Error(`${envKey}_REQUIRED`);
+  const configuration = getComposioConfiguration(input.provider);
+  if (!configuration.configured) throw new Error(`${configuration.missing[0]}_REQUIRED`);
+  const authConfigId = process.env[configuration.authConfigEnvKey]!;
   const request = await (input.gateway ?? createComposioGateway()).link(input.organizationId, authConfigId, { callbackUrl: input.callbackUrl });
   if (!request.redirectUrl) throw new Error("COMPOSIO_CONNECTION_URL_MISSING");
   return { connectionRequestId: request.id, redirectUrl: request.redirectUrl };

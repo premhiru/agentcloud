@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { beginConnection } from "@/integrations/connection-service";
+import { getComposioConfiguration } from "@/integrations/composio-adapter";
 import { isDemoMode } from "@/lib/env";
 import { requireTenantContext } from "@/lib/auth/tenant-context";
 import { enforceRateLimit, RateLimitExceededError } from "@/lib/rate-limit";
@@ -13,6 +14,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   try { await enforceRateLimit(context, "connections:create", 10); }
   catch (error) { if (error instanceof RateLimitExceededError) return NextResponse.json({ code: error.code }, { status: 429, headers: { "retry-after": String(error.retryAfterSeconds) } }); throw error; }
   if (isDemoMode()) return NextResponse.json({ connected: true, provider: provider.data, displayName: `Demo ${provider.data}` });
+  const configuration = getComposioConfiguration(provider.data);
+  if (!configuration.configured) return NextResponse.json({ code: "INTEGRATION_CONFIGURATION_REQUIRED", missing: configuration.missing }, { status: 503 });
   try { const link = await beginConnection({ context, provider: provider.data, origin: new URL(request.url).origin }); return NextResponse.json(link); }
-  catch { return NextResponse.json({ code: "INTEGRATION_CONFIGURATION_REQUIRED" }, { status: 503 }); }
+  catch { return NextResponse.json({ code: "INTEGRATION_CONNECTION_FAILED" }, { status: 502 }); }
 }

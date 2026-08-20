@@ -280,3 +280,17 @@ Verification:
 - Signed-in browser verification — `/approvals` redirects to `/onboarding`; organization creation returns to `/dashboard` with HTTP 200; PostgreSQL contains exactly one synchronized organization, user, and membership for the new account.
 
 Local development now runs against a dedicated PostgreSQL 16 container with all 17 migrations applied. Production still requires an operator-managed PostgreSQL service and Clerk production instance; the local container and Clerk development keys are not presented as deployment verification.
+
+### Integration configuration UX (2026-08-20)
+
+Working: authenticated integration pages now detect missing Composio operator configuration before presenting Gmail, HubSpot, or Slack connection actions. Unconfigured providers show a clear setup-required state with environment-variable names only, never credential values, and the page links to the credential-free deterministic demo. The connection API distinguishes missing configuration from upstream connection failures instead of reducing both to a raw `INTEGRATION_CONFIGURATION_REQUIRED` response.
+
+Verification:
+
+- Focused Composio adapter tests — passed, including safe missing-configuration reporting.
+- `pnpm lint` — passed with zero warnings.
+- `pnpm exec tsc --noEmit --incremental false` — passed.
+- Full deterministic suite — passed, 25 files / 98 tests, including authenticated MCP lifecycle persistence.
+- `pnpm build` — passed; the optimized build includes the configuration-aware integration route and page.
+
+External gate: real Gmail OAuth requires server-only `COMPOSIO_API_KEY` and `COMPOSIO_AUTH_CONFIG_GMAIL` values from an operator-configured Composio project. Until those credentials exist, the live app intentionally does not offer a nonfunctional Gmail connect button; the deterministic demo remains fully usable without external writes.
