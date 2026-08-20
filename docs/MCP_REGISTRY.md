@@ -23,7 +23,11 @@ The current MCP authorization specification requires OAuth 2.0 Protected Resourc
 - Authorization Code with PKCE (`S256`) succeeds. The client sends the canonical MCP resource URI in authorization and token requests.
 - The server rejects expired tokens, tokens for another audience/resource, users without organization membership, and tokens missing the tool's required scope.
 - A least-privilege client can list data but cannot create, deploy, approve, or mutate without the corresponding scope.
-- The full create, dry-run, deploy, trigger, approval pause/resume, observe, pause/resume, version, and rollback lifecycle persists across a second authenticated MCP client.
+- Builder tools enforce `workers:write` for start/refine/commit/abandon and `workers:read` for get. Saving a proposal does not grant `workers:deploy` or deploy implicitly.
+- Strict builder schemas reject caller-supplied organization/user IDs, unknown fields, invalid revisions, and noncanonical spec hashes.
+- `start_worker_builder` returns the validated proposal/readiness/hash and a same-origin dashboard continuation path; no credential or OAuth token appears in either structured or text output.
+- The full describe, refine, commit, dry-run, deploy, trigger, approval pause/resume, observe, refine, and rollback lifecycle persists across a second authenticated MCP client.
+- A stale builder revision, changed spec hash, duplicate commit, or cross-tenant session ID fails closed without returning prompts, vendor errors, database details, or internal tenant/user IDs.
 
 See the official [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) for the discovery, resource indicator, PKCE, audience-validation, and scope requirements.
 
@@ -53,6 +57,7 @@ Registry publication must remain pending until an operator supplies and verifies
 - a stable public production origin that serves both `/api/mcp` and the protected-resource metadata endpoint;
 - production PostgreSQL, Clerk Organizations/OAuth, Trigger.dev, OpenAI, Composio, and deployment credentials described in `DEPLOYMENT.md`;
 - a real OAuth consent flow and audience/scope validation from at least one supported MCP host;
+- PostgreSQL-backed builder continuation across disconnected MCP clients and application instances;
 - GitHub device authorization (or GitHub OIDC in a reviewed release workflow) for the `premhiru` namespace.
 
 These are release-environment checks, not reasons to weaken authentication, tenant isolation, policy enforcement, approval hashing, idempotency, or dry-run write suppression.

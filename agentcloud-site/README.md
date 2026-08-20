@@ -1,6 +1,8 @@
 # AgentCloud project site
 
-The companion product page for AgentCloud. It presents the durable worker lifecycle, governance model, and canonical Inbound Sales Worker demo without depending on the AgentCloud application runtime.
+The companion product page for AgentCloud. It presents the conversational builder, governed worker lifecycle, authenticated MCP, and canonical Inbound Sales Worker demo without depending on the AgentCloud application runtime.
+
+The device-local demo covers describe, refine, readiness and authority review, immutable save, zero-write testing, explicit deployment, approval pause/resume, improvement, pause/resume, and rollback. It uses deterministic fixtures and never connects to vendor accounts or performs external writes.
 
 ## Local development
 

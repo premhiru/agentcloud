@@ -7,13 +7,13 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://agentcloud-control-plane.premhiru.chatgpt.site"),
-  title: "AgentCloud — Persistent AI workers, governed from day one",
-  description: "Create, deploy, and supervise durable AI workers with explicit authority, human approvals, and complete operational timelines.",
+  title: "AgentCloud — Build governed AI workers in conversation",
+  description: "Describe, simulate, govern, and deploy persistent AI workers with immutable versions, explicit authority, human approvals, and an authenticated MCP.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
-    title: "AgentCloud — Persistent AI workers",
-    description: "Durable agent infrastructure with explicit authority and human control.",
-    images: [{ url: "/og.png", width: 1536, height: 1024, alt: "AgentCloud product overview" }],
+    title: "AgentCloud — Describe. Govern. Deploy.",
+    description: "Conversationally built AI workers with immutable versions, explicit authority, and human control.",
+    images: [{ url: "/og-builder.png", width: 1536, height: 1024, alt: "AgentCloud conversational builder, governed WorkerSpec, and approval checkpoint" }],
   },
 };
 

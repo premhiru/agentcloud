@@ -4,7 +4,7 @@ import { DemoControlPlane } from "./demo-control-plane";
 
 export const metadata: Metadata = {
   title: "Interactive demo — AgentCloud",
-  description: "Try the complete AgentCloud worker lifecycle in a deterministic browser demo with no real external writes.",
+  description: "Build, refine, simulate, govern, deploy, approve, and roll back an AgentCloud worker in a deterministic browser demo with no real external writes.",
 };
 
 export default function DemoPage() {
@@ -24,10 +24,10 @@ export default function DemoPage() {
       <section className="demo-intro">
         <div>
           <p className="eyebrow"><span /> Interactive browser demo</p>
-          <h1>Operate a worker.<br /><em>Keep every decision visible.</em></h1>
+          <h1>Build the worker.<br /><em>Keep every decision visible.</em></h1>
         </div>
         <p>
-          Run the canonical inbound-sales lifecycle with deterministic fixtures.
+          Describe, refine, and operate the canonical inbound-sales worker with deterministic fixtures.
           Nothing here connects to real accounts or performs external writes.
         </p>
       </section>

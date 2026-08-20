@@ -9,7 +9,7 @@ Dashboard / API / MCP
         ↓
 Application services (tenant context required)
         ↓
-Domain: WorkerSpec, lifecycle, policy, budget, approval
+Domain: builder proposal, WorkerSpec, lifecycle, policy, budget, approval
         ↓
 Repositories + runtime/model/integration adapters
         ↓
@@ -21,10 +21,27 @@ The application layer owns orchestration. Route handlers and MCP tools only auth
 ## Core contracts
 
 - `WorkerSpec` is a Zod-validated, versioned, vendor-independent document. It contains curated AgentCloud capability IDs, never vendor tool IDs or secrets.
+- `WorkerBuilderSession` is a tenant-owned, optimistic-concurrency workspace for conversational proposals. Its revisions are not WorkerVersions and cannot execute or deploy.
+- `WorkerProposal` contains a validated WorkerSpec, canonical hash, readiness checks, connection requirements, unsupported capabilities, warnings, questions, and a human-readable diff from its base spec.
 - `WorkerVersion` is immutable. Every run retains its exact version ID and the worker's active version changes only through deploy or rollback.
 - `IntegrationAdapter` is the sole route to external capabilities. Composio and deterministic demo integrations implement the same interface.
 - `WorkerRuntime` owns deployment, schedules, triggering, pause/resume, and cancellation. Trigger.dev details do not enter WorkerSpec.
 - `ModelProvider` isolates AI SDK/provider APIs. The compiler and runner both have deterministic fake providers for CI/demo operation.
+
+## Builder-to-runtime boundary
+
+```text
+objective / refinement
+  → redacted, bounded builder message
+  → structured compiler output
+  → curated capability filtering + safe authority normalization
+  → validated proposal + readiness + canonical spec hash
+  → explicit commit of the reviewed revision and hash
+  → immutable DRAFT or READY WorkerVersion
+  → explicit safe test and explicit deployment
+```
+
+The builder is a planner, never an executor. A refinement cannot mutate an existing WorkerVersion, the active deployment, runtime records, integration credentials, policy state, or budgets outside the validated WorkerSpec schema. Commit uses the session’s exact revision and spec hash, so a stale browser or MCP client cannot silently save a different proposal. Committing a proposal does not deploy it.
 
 ## Execution safety path
 
@@ -42,9 +59,9 @@ There is no model-to-Composio path. Unknown and ungranted capabilities are denie
 
 ## Persistence and tenancy
 
-PostgreSQL is the durable source of truth. Tenant-owned tables carry `organization_id`, and repository calls require tenant context as part of their input. IDs alone are never treated as authorization. Audit events are append-only.
+PostgreSQL is the production source of truth. Tenant-owned tables—including builder sessions, messages, proposals, workers, versions, runs, approvals, and connections—carry `organization_id`, and repository calls require tenant context as part of their input. IDs alone are never treated as authorization. Builder proposal rows are append-only, commits are transactional, and audit events are append-only.
 
-Clerk supplies web identity, organizations, and OAuth tokens for the remote MCP endpoint. Clerk external IDs are resolved to internal organization/user rows at the application boundary. Demo mode uses an explicit local tenant and cannot activate implicitly in production.
+Clerk supplies web identity, organizations, and OAuth tokens for the remote MCP endpoint. Clerk external IDs are resolved to internal organization/user rows at the application boundary. MCP tool parameters never choose an organization. Demo mode uses an explicit local tenant and cannot activate implicitly in production.
 
 ## Runtime independence
 
@@ -58,6 +75,6 @@ When a policy decision requires approval, the run enters `WAITING_FOR_APPROVAL`,
 
 ## Demo mode
 
-`DEMO_MODE=true` selects deterministic model, integration, and runtime adapters through the same production interfaces. It provides the complete lifecycle without vendor credentials. Production never falls back to demo behavior when a credential is absent.
+`DEMO_MODE=true` selects deterministic model, integration, and runtime adapters through the same production interfaces. It provides the complete governed worker lifecycle without vendor credentials. Committed workers, versions, runs, approvals, checkpoints, and audit events use durable local JSON. Open builder sessions use an in-process repository: they can continue across MCP client disconnects while the process remains alive, but they do not survive a process restart. Production never falls back to demo behavior when a credential is absent.
 
-With `DEMO_MODE=false`, the control plane is PostgreSQL-backed, compilation/execution use the OpenAI adapter, integrations use Composio, and runs use Trigger.dev. Missing configuration fails closed at the relevant boundary. The demo JSON store is never imported as a production fallback.
+With `DEMO_MODE=false`, builder sessions/proposals and the control plane are PostgreSQL-backed, compilation/execution use the OpenAI adapter, integrations use Composio, and runs use Trigger.dev. Missing configuration fails closed at the relevant boundary. The demo JSON and in-process stores are never imported as production fallbacks.

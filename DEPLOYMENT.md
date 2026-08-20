@@ -17,6 +17,18 @@ WEBHOOK_SIGNING_SECRET=<at-least-32-random-bytes>
 
 Keep database, Clerk, OpenAI, Trigger.dev, Composio, and signing secrets server-only. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `NEXT_PUBLIC_DEMO_MODE` are the only public configuration values.
 
+Configuration responsibilities:
+
+| Variable group | Required behavior |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL source of truth for organizations, builder sessions/proposals, immutable versions, runs, approvals, idempotency, usage, and audit. |
+| Clerk public/secret keys | Web sign-in, organizations, and verified MCP OAuth tokens. Users must have a synchronized AgentCloud organization membership. |
+| `OPENAI_API_KEY`, `WORKER_MODEL` | Structured worker compilation and production run planning. The configured model must support the installed AI SDK structured-output path. |
+| Trigger.dev variables | Durable task execution, schedules, cancellation, and approval waitpoints. |
+| Composio API/auth-config variables | OAuth connection links and the nine curated Gmail, HubSpot, and Slack capability mappings. Tokens remain in Composio. |
+| `APP_BASE_URL` | Canonical HTTPS application origin used for integration callbacks and MCP dashboard continuation URLs. |
+| `WEBHOOK_SIGNING_SECRET` | At least 32 random bytes for raw-body HMAC-SHA256 verification. |
+
 In Clerk, grant MCP clients only the scopes they need from: `workers:read`, `workers:write`, `workers:deploy`, `runs:read`, `approvals:read`, `approvals:write`, and `connections:read`. Enable dynamic client registration if the intended MCP host requires it. Each user must select an organization and visit AgentCloud once before their first MCP connection so the membership is synchronized.
 
 In Composio, allow this callback URL for each auth configuration:
@@ -43,13 +55,17 @@ The deterministic test suite must pass before production credentials are used.
 1. Back up the database and apply committed migrations with `pnpm db:migrate` from a controlled one-off release job.
 2. Deploy Trigger.dev tasks with `pnpm trigger:deploy`. Confirm both `run-worker` and `run-worker-scheduled` appear in the intended production project.
 3. Deploy the same Git revision to Vercel. `vercel.json` selects the Next.js framework and Singapore region; change the region only after considering database latency and residency.
-4. Sign in, select/create an organization, connect Gmail/HubSpot/Slack, create a worker, and run a safe test.
-5. Deploy and manually trigger the worker. Confirm it enters `WAITING_FOR_APPROVAL`, approve the exact request, and confirm the same run reaches `SUCCEEDED` with one external email step.
-6. Connect an OAuth MCP client to `/api/mcp` and repeat the lifecycle with least-privilege scopes.
+4. Sign in, select/create an organization, and start a worker builder. Refine it, verify readiness/diff/hash, commit the reviewed proposal, and confirm PostgreSQL contains the builder session, proposal, worker, and immutable version for that organization.
+5. Connect Gmail/HubSpot/Slack, run a safe test, and confirm no external write occurred.
+6. Deploy and manually trigger the worker. Confirm it enters `WAITING_FOR_APPROVAL`, approve the exact request, and confirm the same run reaches `SUCCEEDED` with one external email step.
+7. Start a refinement from the deployed worker, commit a new version, and confirm the deployed active version did not change until explicit deployment. Verify rollback reactivates the selected historical version.
+8. Connect an OAuth MCP client to `/api/mcp` and repeat the builder, dry-run, deployment, approval, observation, refinement, and rollback lifecycle with least-privilege scopes.
 
 ## 4. Operational checks
 
-- Check `/dashboard`, `/runs/{id}`, `/approvals`, and `/activity` for persisted state and audit events.
+- Check `/dashboard`, `/runs/{id}`, `/approvals`, `/connections`, and `/activity` for persisted state and audit events.
+- Disconnect the initiating browser/MCP client, reconnect with another authenticated client, and recover the builder session, committed worker, and run from PostgreSQL.
+- Confirm MCP continuation URLs use the configured `APP_BASE_URL`, contain no credentials, and stay on the AgentCloud origin.
 - Verify schedule pause/resume in Trigger.dev after pausing/resuming a worker.
 - Treat `OUTCOME_UNKNOWN` writes as manual reconciliation events; do not automatically retry them.
 - Rotate `WEBHOOK_SIGNING_SECRET` in a coordinated maintenance window because existing senders must update simultaneously.
@@ -61,4 +77,4 @@ Application rollback is a Vercel revision rollback paired with the matching Trig
 
 ## Credential-dependent verification still required
 
-Without operator credentials, this repository cannot claim real Clerk OAuth consent, Composio connected-account execution, OpenAI responses, Trigger.dev Cloud waitpoints/schedules, production database migration, DNS, or Vercel deployment. Once credentials exist, perform steps 3–5 above; no code fallback is needed.
+Without operator credentials, this repository cannot claim real Clerk OAuth consent, Composio connected-account execution, OpenAI responses, Trigger.dev Cloud waitpoints/schedules, production database migration, DNS, or Vercel deployment. The credential-free demo validates the same application contracts with deterministic adapters, but its open builder sessions are in-process and its vendor actions are fixtures. Once credentials exist, perform the release and operational checks above; no code fallback is needed.

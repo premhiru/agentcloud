@@ -21,10 +21,12 @@ test("server-renders the AgentCloud product page", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>AgentCloud/);
-  assert.match(html, /AI workers that keep going/);
-  assert.match(html, /Inbound Sales Worker/);
-  assert.match(html, /Waiting for approval/);
+  assert.match(html, /Built in conversation/);
+  assert.match(html, /Worker builder/);
+  assert.match(html, /Ready to save/);
+  assert.match(html, /Authenticated MCP/);
   assert.match(html, /Default-deny authority/);
+  assert.match(html, /gmail.send_email/);
   assert.match(html, /href="\/demo"/);
   assert.match(html, /https:\/\/github\.com\/premhiru\/agentcloud/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);
@@ -36,10 +38,14 @@ test("server-renders a usable interactive demo route", async () => {
 
   const html = await response.text();
   assert.match(html, /Interactive demo/);
-  assert.match(html, /Inbound Sales Guardian/);
+  assert.match(html, /What outcome should this worker own/);
+  assert.match(html, /Generate validated proposal/);
+  assert.match(html, /Save immutable version/);
   assert.match(html, /Test safely/);
   assert.match(html, /Deploy version/);
   assert.match(html, /Run now/);
+  assert.match(html, /Pause worker/);
+  assert.match(html, /Improve active worker/);
   assert.match(html, /https:\/\/github\.com\/premhiru\/agentcloud/);
   assert.match(html, /Nothing here connects to real accounts or performs external writes/);
 });
@@ -54,9 +60,9 @@ test("ships production metadata and responsive styling", async () => {
   ]);
 
   assert.match(layout, /openGraph:/);
-  assert.match(layout, /\/og\.png/);
-  assert.match(page, /aria-label="Example worker run timeline"/);
-  assert.match(page, /tenantIsolation: required/);
+  assert.match(layout, /\/og-builder\.png/);
+  assert.match(page, /aria-label="Example conversational worker proposal"/);
+  assert.match(page, /gmail\.send_email: require_approval/);
   assert.match(demo, /window\.localStorage/);
   assert.match(demo, /approvalDecision/);
   assert.match(demo, /writes: 0/);
