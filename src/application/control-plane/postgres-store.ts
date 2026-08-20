@@ -9,27 +9,19 @@ import { hashWorkerSpec } from "@/domain/canonical-json";
 import { getCapability } from "@/domain/tool-registry";
 import { parseWorkerSpec } from "@/domain/worker-spec";
 import { getDatabase } from "@/db/client";
-import { approvals, auditEvents, connections, organizationMemberships, organizations, runs, runSteps, runtimeDeployments, users, workerTriggers, workerVersions, workers } from "@/db/schema";
+import { approvals, auditEvents, connections, runs, runSteps, runtimeDeployments, workerTriggers, workerVersions, workers } from "@/db/schema";
+import { resolveTenantIds, type TenantIds } from "@/lib/auth/tenant-ids";
 import type { TenantContext } from "@/lib/auth/tenant-context";
 import { requireOwner } from "@/lib/auth/tenant-context";
 import { OpenAICompilerModel } from "@/models/openai-adapters";
 import { TriggerDevRuntime } from "@/runtime/trigger-dev-runtime";
 import type { RuntimeDeployment } from "@/runtime/types";
 
-type TenantIds = { organizationId: string; userId: string };
-
 export class PostgresControlPlaneStore {
   private readonly runtime = new TriggerDevRuntime();
 
   private async tenant(context: TenantContext): Promise<TenantIds> {
-    const db = getDatabase();
-    const [row] = await db.select({ organizationId: organizations.id, userId: users.id, role: organizationMemberships.role })
-      .from(organizations)
-      .innerJoin(organizationMemberships, eq(organizationMemberships.organizationId, organizations.id))
-      .innerJoin(users, eq(users.id, organizationMemberships.userId))
-      .where(and(eq(organizations.clerkOrganizationId, context.organizationExternalId), eq(users.clerkUserId, context.userExternalId))).limit(1);
-    if (!row || row.role !== context.role) throw new Error("TENANT_ACCESS_DENIED");
-    return row;
+    return resolveTenantIds(context);
   }
 
   private async audit(context: TenantContext, tenant: TenantIds, action: string, targetType: string, targetId: string, metadataJson: Record<string, unknown> = {}): Promise<void> {

@@ -2,12 +2,13 @@ import { z } from "zod";
 
 import { inboundSalesWorkerSpec } from "@/domain/inbound-sales-worker";
 import { getCapability, listCapabilities, validateRegisteredCapabilities, type IntegrationProvider } from "@/domain/tool-registry";
-import { authorityRuleSchema, parseWorkerSpec, type AuthorityRule, type TriggerSpec, type WorkerSpec } from "@/domain/worker-spec";
+import { authorityRuleSchema, parseWorkerSpec, workerSpecSchema, type AuthorityRule, type TriggerSpec, type WorkerSpec } from "@/domain/worker-spec";
 
 export const compileWorkerInputSchema = z.object({
   objective: z.string().trim().min(10).max(2_000),
   constraints: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
   connectedIntegrations: z.array(z.enum(["gmail", "hubspot", "slack"])).default([]),
+  baseSpec: workerSpecSchema.optional(),
 }).strict();
 
 export const modelProposalSchema = z.object({
@@ -26,7 +27,7 @@ export type CompileWorkerInput = z.infer<typeof compileWorkerInputSchema>;
 export type ModelProposal = z.infer<typeof modelProposalSchema>;
 
 export interface CompilerModel {
-  propose(input: Readonly<{ objective: string; constraints: readonly string[]; allowedCapabilities: readonly string[] }>): Promise<unknown>;
+  propose(input: Readonly<{ objective: string; constraints: readonly string[]; allowedCapabilities: readonly string[]; baseSpec?: WorkerSpec }>): Promise<unknown>;
 }
 
 export type CompilationResult = Readonly<{
@@ -81,6 +82,7 @@ export async function compileWorker(input: unknown, model: CompilerModel): Promi
     objective: request.objective,
     constraints: request.constraints ?? [],
     allowedCapabilities: listCapabilities().map((capability) => capability.id),
+    baseSpec: request.baseSpec,
   });
   const proposal = modelProposalSchema.parse(rawProposal);
   const registration = validateRegisteredCapabilities(proposal.capabilityIds);
@@ -123,7 +125,7 @@ export async function compileWorker(input: unknown, model: CompilerModel): Promi
 }
 
 export class FakeCompilerModel implements CompilerModel {
-  async propose(input: Readonly<{ objective: string; constraints: readonly string[]; allowedCapabilities: readonly string[] }>): Promise<ModelProposal> {
+  async propose(input: Readonly<{ objective: string; constraints: readonly string[]; allowedCapabilities: readonly string[]; baseSpec?: WorkerSpec }>): Promise<ModelProposal> {
     const normalized = input.objective.toLowerCase();
     if (normalized.includes("sales") || normalized.includes("lead") || normalized.includes("enquir")) {
       const canonical = inboundSalesWorkerSpec();

@@ -57,6 +57,25 @@ export type AppendBuilderProposalInput = Readonly<{
   proposal: WorkerProposal;
 }>;
 
+export type CommitBuilderProposalInput = Readonly<{
+  organizationId: string;
+  sessionId: string;
+  expectedRevision: number;
+  expectedSpecHash: string;
+}>;
+
+export type BuilderCommitResult = Readonly<{
+  session: BuilderSession;
+  workerId: string;
+  workerVersionId: string;
+  versionNumber: number;
+  createdWorker: boolean;
+}>;
+
+export interface BuilderProposalCommitter {
+  commit(input: CommitBuilderProposalInput): Promise<BuilderCommitResult>;
+}
+
 export interface BuilderSessionRepository {
   create(input: CreateBuilderSessionInput): Promise<BuilderSession>;
   get(organizationId: string, sessionId: string): Promise<BuilderSession | undefined>;
@@ -155,5 +174,26 @@ export class MemoryBuilderSessionRepository implements BuilderSessionRepository 
     const updated: BuilderSession = { ...current, status: "ABANDONED", updatedAt: new Date().toISOString() };
     this.sessions.set(current.id, updated);
     return cloneSession(updated);
+  }
+
+  commitWith(
+    input: CommitBuilderProposalInput,
+    persist: (proposal: WorkerProposal, session: BuilderSession) => Omit<BuilderCommitResult, "session">,
+  ): BuilderCommitResult {
+    const current = this.sessions.get(input.sessionId);
+    if (!current || current.organizationId !== input.organizationId) throw new Error("BUILDER_SESSION_NOT_FOUND");
+    if (current.status === "COMMITTED" || current.status === "ABANDONED") throw new Error("BUILDER_SESSION_CLOSED");
+    if (current.revision !== input.expectedRevision) throw new Error("BUILDER_REVISION_CONFLICT");
+    const latest = current.proposals.at(-1);
+    if (!latest || latest.revision !== current.revision) throw new Error("BUILDER_PROPOSAL_NOT_FOUND");
+    const proposal = validateBuilderProposal(latest.proposal);
+    if (proposal.specHash !== input.expectedSpecHash) throw new Error("BUILDER_PROPOSAL_CHANGED");
+    const persisted = persist(proposal, cloneSession(current));
+    const updated: BuilderSession = {
+      ...current, workerId: persisted.workerId, committedWorkerVersionId: persisted.workerVersionId,
+      status: "COMMITTED", updatedAt: new Date().toISOString(),
+    };
+    this.sessions.set(current.id, updated);
+    return { ...persisted, session: cloneSession(updated) };
   }
 }

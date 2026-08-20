@@ -1,0 +1,29 @@
+import { NextResponse } from "next/server";
+
+const errorStatus: Record<string, number> = {
+  BUILDER_MESSAGE_REQUIRED: 400,
+  BUILDER_EXPECTED_SPEC_HASH_REQUIRED: 400,
+  BUILDER_PROPOSAL_HASH_MISMATCH: 400,
+  BUILDER_PROPOSAL_UNSAFE_AUTHORITY: 400,
+  BUILDER_PROPOSAL_UNSUPPORTED_CAPABILITY: 400,
+  BUILDER_SESSION_NOT_FOUND: 404,
+  BUILDER_WORKER_NOT_FOUND: 404,
+  BUILDER_BASE_VERSION_NOT_FOUND: 404,
+  BUILDER_CREATOR_NOT_IN_ORGANIZATION: 403,
+  TENANT_ACCESS_DENIED: 403,
+  WORKER_NOT_FOUND: 404,
+  BUILDER_PROPOSAL_NOT_FOUND: 409,
+  BUILDER_PROPOSAL_CHANGED: 409,
+  BUILDER_REVISION_CONFLICT: 409,
+  BUILDER_SESSION_CLOSED: 409,
+  BUILDER_VERSION_NUMBER_INVALID: 409,
+  WORKER_ARCHIVED: 409,
+  OPENAI_API_KEY_REQUIRED: 503,
+};
+
+export function builderErrorResponse(error: unknown): NextResponse {
+  const code = error instanceof Error ? error.message : "BUILDER_OPERATION_FAILED";
+  const status = errorStatus[code];
+  if (status) return NextResponse.json({ code }, { status });
+  return NextResponse.json({ code: "BUILDER_OPERATION_FAILED" }, { status: 500 });
+}

@@ -51,4 +51,15 @@ describe("builder sessions", () => {
     };
     expect(() => validateBuilderProposal({ ...valid, spec: unsafeSpec, specHash: hashWorkerSpec(unsafeSpec) })).toThrow("BUILDER_PROPOSAL_UNSAFE_AUTHORITY");
   });
+
+  it("commits the exact latest proposal once without mutating proposal history", async () => {
+    const repository = new MemoryBuilderSessionRepository();
+    const session = await repository.create({ organizationId: "org_a", createdBy: "user_a" });
+    const ready = proposal();
+    await repository.appendProposal({ organizationId: "org_a", sessionId: session.id, expectedRevision: 0, userMessage: "Build it", proposal: ready });
+    const committed = repository.commitWith({ organizationId: "org_a", sessionId: session.id, expectedRevision: 1, expectedSpecHash: ready.specHash }, () => ({ workerId: "worker_1", workerVersionId: "version_1", versionNumber: 1, createdWorker: true }));
+    expect(committed).toMatchObject({ workerId: "worker_1", workerVersionId: "version_1", versionNumber: 1, createdWorker: true, session: { status: "COMMITTED", revision: 1 } });
+    expect(committed.session.proposals).toHaveLength(1);
+    expect(() => repository.commitWith({ organizationId: "org_a", sessionId: session.id, expectedRevision: 1, expectedSpecHash: ready.specHash }, () => ({ workerId: "worker_2", workerVersionId: "version_2", versionNumber: 1, createdWorker: true }))).toThrow("BUILDER_SESSION_CLOSED");
+  });
 });

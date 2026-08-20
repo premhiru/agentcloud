@@ -111,6 +111,31 @@ class DemoControlPlaneStore {
     return structuredClone(worker);
   }
 
+  commitWorkerProposal(context: TenantContext, input: Readonly<{ workerId?: string; spec: WorkerSpec; specHash: string; ready: boolean }>): Readonly<{ worker: UiWorker; workerVersionId: string; versionNumber: number; createdWorker: boolean }> {
+    this.load();
+    const spec = structuredClone(input.spec);
+    if (hashWorkerSpec(spec) !== input.specHash) throw new Error("BUILDER_PROPOSAL_HASH_MISMATCH");
+    const now = new Date().toISOString();
+    let worker = input.workerId ? this.workers.find((item) => item.id === input.workerId && item.organizationId === context.organizationExternalId) : undefined;
+    const createdWorker = !worker;
+    if (input.workerId && !worker) throw new Error("WORKER_NOT_FOUND");
+    if (worker?.status === "ARCHIVED") throw new Error("WORKER_ARCHIVED");
+    const versionNumber = worker ? Math.max(...worker.versions.map((version) => version.versionNumber)) + 1 : 1;
+    const version: UiWorkerVersion = { id: randomUUID(), versionNumber, spec, specHash: input.specHash, createdAt: now };
+    if (!worker) {
+      worker = { id: randomUUID(), organizationId: context.organizationExternalId, name: spec.identity.name, status: input.ready ? "READY" : "DRAFT", versions: [version], createdAt: now, updatedAt: now };
+      this.workers.unshift(worker);
+    } else {
+      worker.versions.push(version);
+      worker.name = spec.identity.name;
+      if (worker.status === "DRAFT" || worker.status === "READY") worker.status = input.ready ? "READY" : "DRAFT";
+      worker.updatedAt = now;
+    }
+    this.audit(context, createdWorker ? "worker.created_from_builder" : "worker.version_created_from_builder", "worker", worker.id, { versionId: version.id, specHash: input.specHash });
+    this.save();
+    return { worker: structuredClone(worker), workerVersionId: version.id, versionNumber, createdWorker };
+  }
+
   transition(context: TenantContext, workerId: string, action: "deploy" | "pause" | "resume" | "archive" | "rollback", versionId?: string): UiWorker {
     this.load();
     const worker = this.workers.find((item) => item.id === workerId && item.organizationId === context.organizationExternalId);

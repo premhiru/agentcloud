@@ -329,3 +329,23 @@ Verification:
 Observed non-product flake: the first broad run encountered a transient Windows/OneDrive `EPERM` while the existing demo store atomically renamed its JSON file. The exact canonical acceptance test passed immediately in isolation, and the complete suite then passed cleanly when rerun alone.
 
 Next: add authenticated builder services/APIs and atomically commit the exact latest proposal hash into a new immutable worker version without changing an existing deployment.
+
+### Authenticated builder application and atomic commit (2026-08-20)
+
+Working: the conversational builder now has an application service for tenant-scoped start, inspect, refine, and abandon operations. Each refinement is compiled against the latest validated WorkerSpec, retains bounded redacted constraints, resolves the tenant's current connections, produces a deterministic proposal diff, and performs optimistic revision checks before invoking the model. Builder turns remain proposals only: they cannot execute capabilities or mutate worker versions.
+
+Authenticated Next.js route handlers expose the builder lifecycle at `/api/worker-builders`, including stable browser workspace paths. Mutating operations use strict request schemas and per-user/per-organization rate limits. Production requests resolve Clerk identities to internal tenant IDs before any repository access; demo mode uses the same service contract with deterministic fake compiler and connection adapters.
+
+Committing requires both the exact latest revision and its canonical spec hash. PostgreSQL locks the tenant-scoped session and existing worker inside one transaction, revalidates the independently stored proposal/spec/hash representations, inserts one immutable version, and closes the session atomically. Refining a deployed or paused worker does not change its status or active version. The deterministic demo path enforces the same exact-proposal boundary and persists the committed worker through the existing demo control plane.
+
+Verification:
+
+- Focused builder service, state-machine, persistence, and commit suites — passed, 4 files / 21 tests.
+- Broad non-MCP deterministic suite — passed, 29 files / 122 tests.
+- Authenticated MCP lifecycle suite — passed independently, 1 file / 3 tests.
+- The first combined run completed all 122 non-MCP tests but its MCP `beforeAll` exceeded the shared 30-second hook limit under concurrent TypeScript/ESLint processes; the unchanged MCP suite then passed in 19.58 seconds when run independently.
+- `pnpm typecheck` — passed.
+- Scoped ESLint across every changed application, route, persistence, and test file — passed with zero warnings.
+- `git diff --check` — passed.
+
+Next: replace the one-shot creation experience with the persistent Worker Studio: conversational refinement, proposal diffs and readiness, safe-test continuation, deployment controls, worker-scoped runs, approval visibility, and immutable version history in one coherent workspace.

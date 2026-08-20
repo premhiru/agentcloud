@@ -17,14 +17,14 @@ import * as schema from "@/db/schema";
 import { canonicalJson, hashWorkerSpec } from "@/domain/canonical-json";
 import { parseWorkerSpec } from "@/domain/worker-spec";
 
-type BuilderDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
-type BuilderTransaction = Parameters<Parameters<BuilderDatabase["transaction"]>[0]>[0];
+export type BuilderDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
+export type BuilderTransaction = Parameters<Parameters<BuilderDatabase["transaction"]>[0]>[0];
 
 function asIsoString(value: Date): string {
   return value.toISOString();
 }
 
-function validatedStoredProposal(row: typeof schema.builderProposals.$inferSelect): WorkerProposal {
+export function validatedStoredProposal(row: typeof schema.builderProposals.$inferSelect): WorkerProposal {
   const proposal = validateBuilderProposal(row.proposalJson as unknown as WorkerProposal);
   const storedSpec = parseWorkerSpec(row.specJson);
   const storedHash = hashWorkerSpec(storedSpec);
@@ -38,6 +38,71 @@ function validatedStoredProposal(row: typeof schema.builderProposals.$inferSelec
   return proposal;
 }
 
+export async function loadBuilderSession(
+  database: BuilderDatabase | BuilderTransaction,
+  organizationId: string,
+  sessionId: string,
+): Promise<BuilderSession | undefined> {
+  const [session] = await database
+    .select()
+    .from(schema.builderSessions)
+    .where(and(
+      eq(schema.builderSessions.organizationId, organizationId),
+      eq(schema.builderSessions.id, sessionId),
+    ))
+    .limit(1);
+  if (!session) return undefined;
+
+  const messages = await database
+    .select()
+    .from(schema.builderMessages)
+    .where(and(
+      eq(schema.builderMessages.organizationId, organizationId),
+      eq(schema.builderMessages.sessionId, sessionId),
+    ))
+    .orderBy(asc(schema.builderMessages.sequence));
+  const proposals = await database
+    .select()
+    .from(schema.builderProposals)
+    .where(and(
+      eq(schema.builderProposals.organizationId, organizationId),
+      eq(schema.builderProposals.sessionId, sessionId),
+    ))
+    .orderBy(asc(schema.builderProposals.revision));
+
+  return {
+    id: session.id,
+    organizationId: session.organizationId,
+    ...(session.workerId ? { workerId: session.workerId } : {}),
+    ...(session.baseWorkerVersionId ? { baseWorkerVersionId: session.baseWorkerVersionId } : {}),
+    status: session.status,
+    revision: session.revision,
+    createdBy: session.createdBy,
+    ...(session.committedWorkerVersionId
+      ? { committedWorkerVersionId: session.committedWorkerVersionId }
+      : {}),
+    createdAt: asIsoString(session.createdAt),
+    updatedAt: asIsoString(session.updatedAt),
+    messages: messages.map((message): BuilderMessage => ({
+      id: message.id,
+      organizationId: message.organizationId,
+      sessionId: message.sessionId,
+      sequence: message.sequence,
+      role: message.role,
+      content: message.content,
+      createdAt: asIsoString(message.createdAt),
+    })),
+    proposals: proposals.map((proposal): BuilderProposalRevision => ({
+      id: proposal.id,
+      organizationId: proposal.organizationId,
+      sessionId: proposal.sessionId,
+      revision: proposal.revision,
+      proposal: validatedStoredProposal(proposal),
+      createdAt: asIsoString(proposal.createdAt),
+    })),
+  };
+}
+
 export class PostgresBuilderSessionRepository implements BuilderSessionRepository {
   constructor(private readonly database: BuilderDatabase = getDatabase()) {}
 
@@ -46,64 +111,7 @@ export class PostgresBuilderSessionRepository implements BuilderSessionRepositor
     organizationId: string,
     sessionId: string,
   ): Promise<BuilderSession | undefined> {
-    const [session] = await database
-      .select()
-      .from(schema.builderSessions)
-      .where(and(
-        eq(schema.builderSessions.organizationId, organizationId),
-        eq(schema.builderSessions.id, sessionId),
-      ))
-      .limit(1);
-    if (!session) return undefined;
-
-    const messages = await database
-      .select()
-      .from(schema.builderMessages)
-      .where(and(
-        eq(schema.builderMessages.organizationId, organizationId),
-        eq(schema.builderMessages.sessionId, sessionId),
-      ))
-      .orderBy(asc(schema.builderMessages.sequence));
-    const proposals = await database
-      .select()
-      .from(schema.builderProposals)
-      .where(and(
-        eq(schema.builderProposals.organizationId, organizationId),
-        eq(schema.builderProposals.sessionId, sessionId),
-      ))
-      .orderBy(asc(schema.builderProposals.revision));
-
-    return {
-      id: session.id,
-      organizationId: session.organizationId,
-      ...(session.workerId ? { workerId: session.workerId } : {}),
-      ...(session.baseWorkerVersionId ? { baseWorkerVersionId: session.baseWorkerVersionId } : {}),
-      status: session.status,
-      revision: session.revision,
-      createdBy: session.createdBy,
-      ...(session.committedWorkerVersionId
-        ? { committedWorkerVersionId: session.committedWorkerVersionId }
-        : {}),
-      createdAt: asIsoString(session.createdAt),
-      updatedAt: asIsoString(session.updatedAt),
-      messages: messages.map((message): BuilderMessage => ({
-        id: message.id,
-        organizationId: message.organizationId,
-        sessionId: message.sessionId,
-        sequence: message.sequence,
-        role: message.role,
-        content: message.content,
-        createdAt: asIsoString(message.createdAt),
-      })),
-      proposals: proposals.map((proposal): BuilderProposalRevision => ({
-        id: proposal.id,
-        organizationId: proposal.organizationId,
-        sessionId: proposal.sessionId,
-        revision: proposal.revision,
-        proposal: validatedStoredProposal(proposal),
-        createdAt: asIsoString(proposal.createdAt),
-      })),
-    };
+    return loadBuilderSession(database, organizationId, sessionId);
   }
 
   private async assertReferences(input: CreateBuilderSessionInput): Promise<void> {
