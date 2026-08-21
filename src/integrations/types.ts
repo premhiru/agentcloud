@@ -6,6 +6,6 @@ export type ExecutionContext = Readonly<{ organizationId: string; workerId: stri
 export type ExecutionResult = Readonly<{ ok: true; data: Record<string, unknown>; externalReference?: string }> | Readonly<{ ok: false; classification: "TRANSIENT" | "PERMANENT" | "AUTHENTICATION" | "RATE_LIMIT" | "POLICY" | "UNKNOWN_OUTCOME"; message: string }>;
 
 export interface IntegrationAdapter {
-  getConnectionStatus(input: Readonly<{ organizationId: string; provider: IntegrationProvider }>): Promise<ConnectionState>;
+  getConnectionStatus(input: Readonly<{ organizationId: string; provider: IntegrationProvider; capabilityId?: string }>): Promise<ConnectionState>;
   executeCapability(capabilityId: string, input: unknown, context: ExecutionContext): Promise<ExecutionResult>;
 }

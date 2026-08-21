@@ -1,12 +1,12 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, notInArray } from "drizzle-orm";
 import { wait } from "@trigger.dev/sdk";
 
 import { compileWorker } from "@/application/compiler/compiler";
 import type { UiApproval, UiAuditEvent, UiConnection, UiRun, UiWorker, UiWorkerVersion } from "@/application/control-plane/demo-store";
 import { hashWorkerSpec } from "@/domain/canonical-json";
-import { getCapability } from "@/domain/tool-registry";
+import { listCapabilities } from "@/domain/tool-registry";
 import { parseWorkerSpec } from "@/domain/worker-spec";
 import { getDatabase } from "@/db/client";
 import { approvals, auditEvents, connections, runs, runSteps, runtimeDeployments, workerTriggers, workerVersions, workers } from "@/db/schema";
@@ -88,10 +88,11 @@ export class PostgresControlPlaneStore {
     if (action === "deploy" || action === "rollback") {
       const version = action === "rollback" ? versions.find((item) => item.id === versionId) : latest;
       if (!version) throw new Error("WORKER_VERSION_NOT_FOUND");
-      const required = [...new Set(version.spec.capabilities.map((grant) => getCapability(grant.capability)!.integration))];
+      const required = version.spec.capabilities.map((grant) => grant.capability);
       if (required.length) {
-        const activeConnections = await db.select({ provider: connections.provider }).from(connections).where(and(eq(connections.organizationId, tenant.organizationId), eq(connections.status, "CONNECTED"), inArray(connections.provider, required)));
-        if (new Set(activeConnections.map((item) => item.provider)).size !== required.length) throw new Error("REQUIRED_CONNECTION_MISSING");
+        const activeConnections = await this.listConnections(context);
+        const supported = new Set(activeConnections.filter((connection) => connection.status === "CONNECTED").flatMap((connection) => connection.supportedCapabilities ?? []));
+        if (required.some((capability) => !supported.has(capability))) throw new Error("REQUIRED_CONNECTION_MISSING");
       }
       const deployment = await this.runtime.deployWorker({ organizationId: tenant.organizationId, workerId, workerVersionId: version.id, triggers: version.spec.triggers, existing: currentDeployment?.value });
       await db.insert(runtimeDeployments).values({ organizationId: tenant.organizationId, workerId, workerVersionId: version.id, provider: deployment.provider, externalDeploymentId: deployment.deploymentId, status: "ACTIVE", metadataJson: { scheduleIds: deployment.scheduleIds } }).onConflictDoUpdate({ target: [runtimeDeployments.organizationId, runtimeDeployments.workerId], set: { workerVersionId: version.id, provider: deployment.provider, externalDeploymentId: deployment.deploymentId, status: "ACTIVE", metadataJson: { scheduleIds: deployment.scheduleIds }, updatedAt: new Date() } });
@@ -169,7 +170,16 @@ export class PostgresControlPlaneStore {
 
   async listConnections(context: TenantContext): Promise<UiConnection[]> {
     const tenant = await this.tenant(context); const rows = await getDatabase().select().from(connections).where(eq(connections.organizationId, tenant.organizationId)).orderBy(desc(connections.updatedAt));
-    const latest = new Map<UiConnection["provider"], UiConnection>(); for (const row of rows) if (!latest.has(row.provider)) latest.set(row.provider, { provider: row.provider, status: row.status, displayName: row.displayName }); return [...latest.values()];
+    const grouped = new Map<UiConnection["provider"], typeof rows>();
+    for (const row of rows) grouped.set(row.provider, [...(grouped.get(row.provider) ?? []), row]);
+    return [...grouped.entries()].map(([provider, providerRows]) => {
+      const connected = providerRows.filter((row) => row.status === "CONNECTED"); const representative = connected[0] ?? providerRows[0]!;
+      const methods = [...new Set(connected.map((row) => row.metadataJson.method === "official_mcp" ? "official_mcp" as const : "managed_oauth" as const))];
+      const supportedCapabilities = [...new Set(connected.flatMap((row) => row.metadataJson.method === "official_mcp" && Array.isArray(row.metadataJson.supportedCapabilities)
+        ? row.metadataJson.supportedCapabilities.filter((item): item is string => typeof item === "string")
+        : listCapabilities().filter((capability) => capability.integration === provider).map((capability) => capability.id)))];
+      return { provider, status: connected.length ? "CONNECTED" as const : representative.status, displayName: connected.length > 1 ? `${connected.length} connected methods` : representative.displayName, methods, supportedCapabilities };
+    });
   }
 }
 

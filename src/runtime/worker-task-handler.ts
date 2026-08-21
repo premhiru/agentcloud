@@ -16,8 +16,8 @@ async function executeDemoWorkerTask(payload: RunWorkerPayload) {
 }
 
 async function executeProductionWorkerTask(payload: RunWorkerPayload) {
-  const [{ and, eq, count, gte, sql }, { wait }, { ApprovalEngine }, { TriggerApprovalWaitpoints }, { getDatabase }, schema, { parseWorkerSpec }, { ComposioIntegrationAdapter, createComposioGateway }, { OpenAIWorkerModel }, adapters, runner] = await Promise.all([
-    import("drizzle-orm"), import("@trigger.dev/sdk"), import("@/approvals/approval-engine"), import("@/approvals/trigger-waitpoints"), import("@/db/client"), import("@/db/schema"), import("@/domain/worker-spec"), import("@/integrations/composio-adapter"), import("@/models/openai-adapters"), import("@/persistence/postgres-runtime-adapters"), import("./worker-runner"),
+  const [{ and, eq, count, gte, sql }, { wait }, { ApprovalEngine }, { TriggerApprovalWaitpoints }, { getDatabase }, schema, { parseWorkerSpec }, { ComposioIntegrationAdapter, createComposioGateway }, { RemoteMcpIntegrationAdapter, RoutedIntegrationAdapter }, { OpenAIWorkerModel }, adapters, runner] = await Promise.all([
+    import("drizzle-orm"), import("@trigger.dev/sdk"), import("@/approvals/approval-engine"), import("@/approvals/trigger-waitpoints"), import("@/db/client"), import("@/db/schema"), import("@/domain/worker-spec"), import("@/integrations/composio-adapter"), import("@/integrations/remote-mcp-adapter"), import("@/models/openai-adapters"), import("@/persistence/postgres-runtime-adapters"), import("./worker-runner"),
   ]);
   const db = getDatabase();
   const [run] = await db.select().from(schema.runs).where(and(eq(schema.runs.organizationId, payload.organizationId), eq(schema.runs.id, payload.runId), eq(schema.runs.workerId, payload.workerId), eq(schema.runs.workerVersionId, payload.workerVersionId))).limit(1);
@@ -27,7 +27,12 @@ async function executeProductionWorkerTask(payload: RunWorkerPayload) {
   const [version] = await db.select().from(schema.workerVersions).where(and(eq(schema.workerVersions.organizationId, payload.organizationId), eq(schema.workerVersions.id, payload.workerVersionId), eq(schema.workerVersions.workerId, payload.workerId))).limit(1);
   if (!version) throw new Error("WORKER_VERSION_NOT_FOUND");
   const spec = parseWorkerSpec(version.specJson); const journal = new adapters.PostgresRunnerJournal(payload.organizationId); const executions = new adapters.PostgresToolExecutionRepository(payload.organizationId, payload.runId);
-  const integrations = new ComposioIntegrationAdapter(new adapters.PostgresConnectionReferenceRepository(payload.organizationId), createComposioGateway());
+  const managedIntegrations = new ComposioIntegrationAdapter(new adapters.PostgresConnectionReferenceRepository(payload.organizationId), {
+    execute: (slug, body) => createComposioGateway().execute(slug, body),
+    link: (userId, authConfigId, options) => createComposioGateway().link(userId, authConfigId, options),
+  });
+  const officialMcpIntegrations = new RemoteMcpIntegrationAdapter(new adapters.PostgresRemoteMcpConnectionRepository(payload.organizationId), adapters.createPostgresRemoteMcpGateway(payload.organizationId));
+  const integrations = new RoutedIntegrationAdapter(officialMcpIntegrations, managedIntegrations);
   const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
   const [monthly] = await db.select({ cost: sql<string>`coalesce(sum(${schema.usageEvents.estimatedCostUsd}), 0)` }).from(schema.usageEvents).where(and(eq(schema.usageEvents.organizationId, payload.organizationId), eq(schema.usageEvents.workerId, payload.workerId), gte(schema.usageEvents.createdAt, monthStart)));
   const result = await runner.runWorker({ payload, spec, model: new OpenAIWorkerModel(), integrations, executions, journal, initialUsage: { monthlyCostUsd: Number(monthly?.cost ?? 0), runCostUsd: 0, modelCalls: 0, toolCalls: 0 } });

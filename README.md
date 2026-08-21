@@ -106,8 +106,8 @@ Dashboard · MCP · Signed webhooks
                 │
       ┌─────────┴─────────┐
       ▼                   ▼
- WorkerRuntime     IntegrationAdapter
- Fake / Trigger.dev  Fake / Composio
+ WorkerRuntime       IntegrationAdapter
+ Fake / Trigger.dev  Fake / Official MCP / managed fallback
                 │
                 ▼
  PostgreSQL · approvals · timelines · audit
@@ -119,7 +119,7 @@ AgentCloud keeps vendor-specific code behind narrow interfaces:
 | --- | --- | --- |
 | `ModelProvider` | Fixed compiler and worker outputs | AI SDK with OpenAI |
 | `WorkerRuntime` | In-process durable fake runtime | Trigger.dev v4 |
-| `IntegrationAdapter` | Gmail, HubSpot, and Slack fixtures | Composio connected accounts |
+| `IntegrationAdapter` | Gmail, HubSpot, and Slack fixtures | Capability-routed official remote MCP plus managed OAuth fallback |
 | Persistence | Durable demo JSON for committed lifecycle state; in-process open builder sessions | PostgreSQL with Drizzle ORM for builder and lifecycle state |
 | Identity | Explicit demo tenant | Clerk users and organizations |
 
@@ -164,6 +164,8 @@ The current registry is intentionally small. The builder may select only these a
 | Gmail | `gmail.search_messages`, `gmail.read_message` | `gmail.send_email` — high risk and approval-required by the compiler |
 | HubSpot | `hubspot.search_contacts`, `hubspot.get_contact` | `hubspot.upsert_contact`, `hubspot.create_note` |
 | Slack | `slack.list_channels` | `slack.post_message` — external communication governed by the reviewed authority rule |
+
+Production connections are capability-aware. AgentCloud prefers each provider's fixed official remote MCP endpoint, discovers its advertised tools after OAuth, and exposes only the intersection with the curated registry above. It does not turn arbitrary discovered MCP tools into worker authority. Current official coverage is incomplete: Gmail MCP can search/read but cannot send email, and Slack MCP does not provide AgentCloud's bounded channel-list capability, so those gaps remain on the managed OAuth adapter. HubSpot and Slack message posting prefer official MCP when configured. A worker is deployment-ready only when every exact granted capability has an active route.
 
 Builder inputs are bounded to a 10–2,000 character objective, at most 20 initial constraints of 500 characters each, and 500 characters per refinement. WorkerSpec 1.0 allows at most 50 instructions, 10 triggers, 50 capability grants, and 100 authority rules. Individual capability inputs are validated against registry-owned Zod schemas before policy evaluation or adapter execution.
 
@@ -264,7 +266,7 @@ AgentCloud has two explicit operating modes:
 | Mode | Required setup | Behavior |
 | --- | --- | --- |
 | **Demo** | `DEMO_MODE=true` and `NEXT_PUBLIC_DEMO_MODE=true` | Deterministic compiler, Gmail/HubSpot/Slack fixtures, fake runtime, durable committed lifecycle JSON, and in-process open builder sessions. No external vendor call is made. |
-| **Production** | PostgreSQL, Clerk, OpenAI, Trigger.dev, Composio, and application secrets | PostgreSQL-persisted builder/lifecycle state and explicitly selected real adapters; missing configuration fails closed. |
+| **Production** | PostgreSQL, Clerk, OpenAI, Trigger.dev, official provider MCP OAuth, optional managed fallback, and application secrets | PostgreSQL-persisted builder/lifecycle state and explicitly selected real adapters; missing capability coverage fails closed. |
 
 Start with [.env.example](./.env.example), which documents every variable and its safe default. Never expose server secrets through `NEXT_PUBLIC_*` variables.
 
@@ -332,7 +334,7 @@ Deploy the web application and runtime from the same Git revision:
 1. Provision PostgreSQL or Neon and run the committed migrations.
 2. Configure Clerk Organizations and MCP OAuth scopes.
 3. Configure Trigger.dev and deploy the worker task.
-4. Create Composio Gmail, HubSpot, and Slack auth configurations.
+4. Register OAuth clients for the official Gmail, HubSpot, and Slack remote MCP servers, and configure managed OAuth only for capability gaps.
 5. Configure OpenAI, the application URL, and webhook signing secret.
 6. Deploy the Next.js application to Vercel, then verify the builder-to-approval lifecycle with operator-owned accounts.
 
@@ -345,7 +347,7 @@ The exact release order, smoke tests, rollback procedure, and credential-depende
 
 The credential-independent MVP and all milestones in [PLAN.md](./PLAN.md) are complete. [PROGRESS.md](./PROGRESS.md) records the implemented behavior and verification evidence for each milestone.
 
-Real Gmail, HubSpot, Slack, Clerk OAuth, Trigger.dev Cloud, OpenAI, and Vercel checks remain operator-credentialed deployment steps. The deterministic demo proves AgentCloud’s control-plane behavior; it is not evidence of live vendor consent, third-party writes, or a public production deployment.
+Real Gmail, HubSpot, Slack remote-MCP OAuth/tool-schema checks, managed-fallback execution, Clerk OAuth, Trigger.dev Cloud, OpenAI, and Vercel checks remain operator-credentialed deployment steps. The deterministic demo proves AgentCloud’s control-plane behavior; it is not evidence of live vendor consent, third-party writes, or a public production deployment.
 
 ## Documentation
 

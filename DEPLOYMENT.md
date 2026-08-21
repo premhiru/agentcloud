@@ -4,7 +4,7 @@ This is an operator runbook. It does not imply that any external environment has
 
 ## 1. Provision and configure
 
-Use Node.js 24 and pnpm 11. Create a PostgreSQL 16 or Neon database, a Clerk application with Organizations and OAuth Provider enabled, a Trigger.dev v4 project, an OpenAI API project, and Composio Gmail/HubSpot/Slack auth configurations.
+Use Node.js 24 and pnpm 11. Create a PostgreSQL 16 or Neon database, a Clerk application with Organizations and OAuth Provider enabled, a Trigger.dev v4 project, an OpenAI API project, OAuth clients for the official Gmail/HubSpot/Slack remote MCP servers, and managed OAuth configurations for capabilities those servers do not expose.
 
 Set every variable in `.env.example` in both the Vercel production environment and, where required by task execution, the Trigger.dev production environment. Production must explicitly use:
 
@@ -15,7 +15,7 @@ APP_BASE_URL=https://your-agentcloud-domain.example
 WEBHOOK_SIGNING_SECRET=<at-least-32-random-bytes>
 ```
 
-Keep database, Clerk, OpenAI, Trigger.dev, Composio, and signing secrets server-only. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `NEXT_PUBLIC_DEMO_MODE` are the only public configuration values.
+Keep database, Clerk, OpenAI, Trigger.dev, provider OAuth, managed fallback, encryption, and signing secrets server-only. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `NEXT_PUBLIC_DEMO_MODE` are the only public configuration values.
 
 Configuration responsibilities:
 
@@ -25,13 +25,15 @@ Configuration responsibilities:
 | Clerk public/secret keys | Web sign-in, organizations, and verified MCP OAuth tokens. Users must have a synchronized AgentCloud organization membership. |
 | `OPENAI_API_KEY`, `WORKER_MODEL` | Structured worker compilation and production run planning. The configured model must support the installed AI SDK structured-output path. |
 | Trigger.dev variables | Durable task execution, schedules, cancellation, and approval waitpoints. |
-| Composio API/auth-config variables | OAuth connection links and the nine curated Gmail, HubSpot, and Slack capability mappings. Tokens remain in Composio. |
+| `MCP_CONNECTION_ENCRYPTION_KEY` | Base64-encoded 32-byte key for AES-256-GCM encryption of delegated remote-MCP OAuth state. Back up and rotate through a reviewed re-authorization plan. |
+| `MCP_*_CLIENT_ID`, `MCP_*_CLIENT_SECRET` | Pre-registered confidential OAuth clients for the fixed official MCP endpoints. Gmail currently covers search/read, HubSpot covers CRM operations, and Slack covers message posting. |
+| Composio API/auth-config variables | Managed OAuth fallback for curated capability gaps, currently Gmail send and Slack channel listing. Tokens remain in Composio. |
 | `APP_BASE_URL` | Canonical HTTPS application origin used for integration callbacks and MCP dashboard continuation URLs. |
 | `WEBHOOK_SIGNING_SECRET` | At least 32 random bytes for raw-body HMAC-SHA256 verification. |
 
 In Clerk, grant MCP clients only the scopes they need from: `workers:read`, `workers:write`, `workers:deploy`, `runs:read`, `approvals:read`, `approvals:write`, and `connections:read`. Enable dynamic client registration if the intended MCP host requires it. Each user must select an organization and visit AgentCloud once before their first MCP connection so the membership is synchronized.
 
-In Composio, allow this callback URL for each auth configuration:
+Register this exact callback URL with every provider OAuth client and managed auth configuration:
 
 ```text
 https://your-agentcloud-domain.example/api/integrations/callback
@@ -56,7 +58,7 @@ The deterministic test suite must pass before production credentials are used.
 2. Deploy Trigger.dev tasks with `pnpm trigger:deploy`. Confirm both `run-worker` and `run-worker-scheduled` appear in the intended production project.
 3. Deploy the same Git revision to Vercel. `vercel.json` selects the Next.js framework and Singapore region; change the region only after considering database latency and residency.
 4. Sign in, select/create an organization, and start a worker builder. Refine it, verify readiness/diff/hash, commit the reviewed proposal, and confirm PostgreSQL contains the builder session, proposal, worker, and immutable version for that organization.
-5. Connect Gmail/HubSpot/Slack, run a safe test, and confirm no external write occurred.
+5. Connect Gmail/HubSpot/Slack from a worker readiness link. Verify the UI reports exact capability coverage, run a safe test, and confirm no external write occurred.
 6. Deploy and manually trigger the worker. Confirm it enters `WAITING_FOR_APPROVAL`, approve the exact request, and confirm the same run reaches `SUCCEEDED` with one external email step.
 7. Start a refinement from the deployed worker, commit a new version, and confirm the deployed active version did not change until explicit deployment. Verify rollback reactivates the selected historical version.
 8. Connect an OAuth MCP client to `/api/mcp` and repeat the builder, dry-run, deployment, approval, observation, refinement, and rollback lifecycle with least-privilege scopes.
@@ -77,4 +79,4 @@ Application rollback is a Vercel revision rollback paired with the matching Trig
 
 ## Credential-dependent verification still required
 
-Without operator credentials, this repository cannot claim real Clerk OAuth consent, Composio connected-account execution, OpenAI responses, Trigger.dev Cloud waitpoints/schedules, production database migration, DNS, or Vercel deployment. The credential-free demo validates the same application contracts with deterministic adapters, but its open builder sessions are in-process and its vendor actions are fixtures. Once credentials exist, perform the release and operational checks above; no code fallback is needed.
+Without operator credentials, this repository cannot claim real provider MCP OAuth/tool compatibility, managed connected-account execution, Clerk OAuth consent, OpenAI responses, Trigger.dev Cloud waitpoints/schedules, production database migration, DNS, or Vercel deployment. The credential-free demo validates the same application contracts with deterministic adapters, but its open builder sessions are in-process and its vendor actions are fixtures. Once credentials exist, perform the release and operational checks above.

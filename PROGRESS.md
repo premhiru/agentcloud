@@ -245,6 +245,16 @@ Verification:
 
 External gates: a production AgentCloud runtime and official Registry publication still require the operator credentials and OAuth checks in `DEPLOYMENT.md` and `docs/MCP_REGISTRY.md`.
 
+## Milestone 12 — Official provider MCP connections and worker-led onboarding
+
+Working: production integration execution is now capability-routed behind the existing `IntegrationAdapter`. AgentCloud prefers fixed official Gmail, HubSpot, and Slack remote MCP endpoints when configured, intersects discovered tool names with a hard-coded curated capability allowlist, and retains the managed OAuth adapter only for verified coverage gaps. Connectivity checks, runtime dispatch, Worker Studio readiness, and deployment preflight all evaluate the exact capability rather than treating a provider-level connection as blanket authority. Gmail's official read-only coverage cannot make `gmail.send_email` deployment-ready; unknown remote tools remain denied.
+
+Official remote-MCP OAuth uses the installed MCP client SDK with automatic protocol-version negotiation, PKCE, state validation, durable discovery/refresh state, and pre-registered confidential clients. Tokens, refresh tokens, code verifiers, and discovery state are AES-256-GCM encrypted and authenticated against internal tenant, connection, and provider identifiers. OAuth callback destinations are restricted to safe AgentCloud worker/connection paths. No credential is returned to the browser, MCP clients, logs, WorkerSpecs, or audit metadata.
+
+Connection acquisition is contextual: every missing or partial WorkerSpec capability links to its exact provider, carries a validated internal return path, highlights the required connection, explains why it is needed, and returns to Worker Studio after consent. Cards distinguish official remote MCP, managed fallback, deterministic demo, partial coverage, and full readiness. This is the primary activation loop: describe a worker first, then request the least connection access needed to make that reviewed version deployable.
+
+Verified locally: remote adapter/routing, tenant isolation, unknown-tool denial, capability mapping, dry-run write suppression, encrypted-credential binding, safe return-path validation, and partial-coverage readiness tests pass. Real provider OAuth and tool calls remain credential-dependent checks and are not claimed as verified.
+
 Next: provision operator credentials for the production runtime, verify OAuth from a real MCP host, then run the guarded Registry publication workflow. No credential-independent launch work remains.
 
 ### Clerk authentication and open-source licensing

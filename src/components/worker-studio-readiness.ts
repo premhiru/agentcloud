@@ -14,7 +14,8 @@ export type StudioReadinessCheck = Readonly<{
 export type RequiredProvider = Readonly<{
   provider: IntegrationProvider;
   capabilities: readonly string[];
-  connectionStatus: UiConnection["status"] | "NOT_CONNECTED";
+  missingCapabilities: readonly string[];
+  connectionStatus: UiConnection["status"] | "NOT_CONNECTED" | "PARTIAL";
   connected: boolean;
 }>;
 
@@ -39,9 +40,9 @@ export function providerLabel(provider: string): string {
 export function deriveWorkerStudioReadiness(
   spec: WorkerSpec,
   workerStatus: WorkerStatus,
-  connections: readonly Pick<UiConnection, "provider" | "status">[],
+  connections: readonly Pick<UiConnection, "provider" | "status" | "supportedCapabilities">[],
 ): WorkerStudioReadiness {
-  const connectionStatuses = new Map(connections.map((connection) => [connection.provider, connection.status]));
+  const connectionStatuses = new Map(connections.map((connection) => [connection.provider, connection]));
   const providers = new Map<IntegrationProvider, string[]>();
   const unsupportedCapabilities: string[] = [];
 
@@ -59,12 +60,15 @@ export function deriveWorkerStudioReadiness(
   const requiredProviders = [...providers.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([provider, capabilities]) => {
-      const connectionStatus = connectionStatuses.get(provider) ?? "NOT_CONNECTED";
+      const connection = connectionStatuses.get(provider); const supported = new Set(connection?.supportedCapabilities ?? (connection?.status === "CONNECTED" ? capabilities : []));
+      const missingCapabilities = capabilities.filter((capability) => !supported.has(capability));
+      const connectionStatus = !connection ? "NOT_CONNECTED" : connection.status === "CONNECTED" && missingCapabilities.length ? "PARTIAL" : connection.status;
       return {
         provider,
         capabilities: [...capabilities].sort(),
+        missingCapabilities: [...missingCapabilities].sort(),
         connectionStatus,
-        connected: connectionStatus === "CONNECTED",
+        connected: connectionStatus === "CONNECTED" && missingCapabilities.length === 0,
       } satisfies RequiredProvider;
     });
 
@@ -72,7 +76,7 @@ export function deriveWorkerStudioReadiness(
   const missingAuthority = spec.capabilities
     .map((grant) => grant.capability)
     .filter((capability) => !governedCapabilities.has(capability));
-  const missingProviders = requiredProviders.filter((provider) => !provider.connected).map(({ provider }) => providerLabel(provider));
+  const missingProviders = requiredProviders.filter((provider) => !provider.connected).map(({ provider, missingCapabilities }) => missingCapabilities.length ? `${providerLabel(provider)} (${missingCapabilities.length} missing ${missingCapabilities.length === 1 ? "capability" : "capabilities"})` : providerLabel(provider));
   const lifecycleBlocked = workerStatus === "ARCHIVED";
   const lifecycleNeedsReview = workerStatus === "DRAFT";
 

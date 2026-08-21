@@ -13,7 +13,7 @@ Domain: builder proposal, WorkerSpec, lifecycle, policy, budget, approval
         ↓
 Repositories + runtime/model/integration adapters
         ↓
-PostgreSQL, Trigger.dev, AI SDK/OpenAI, Composio
+PostgreSQL, Trigger.dev, AI SDK/OpenAI, official provider MCP servers, managed OAuth fallback
 ```
 
 The application layer owns orchestration. Route handlers and MCP tools only authenticate, validate input, invoke application services, and translate typed results.
@@ -24,7 +24,7 @@ The application layer owns orchestration. Route handlers and MCP tools only auth
 - `WorkerBuilderSession` is a tenant-owned, optimistic-concurrency workspace for conversational proposals. Its revisions are not WorkerVersions and cannot execute or deploy.
 - `WorkerProposal` contains a validated WorkerSpec, canonical hash, readiness checks, connection requirements, unsupported capabilities, warnings, questions, and a human-readable diff from its base spec.
 - `WorkerVersion` is immutable. Every run retains its exact version ID and the worker's active version changes only through deploy or rollback.
-- `IntegrationAdapter` is the sole route to external capabilities. Composio and deterministic demo integrations implement the same interface.
+- `IntegrationAdapter` is the sole route to external capabilities. Official remote MCP, managed fallback, and deterministic demo integrations implement the same interface. Routing is per curated capability, never per provider alone.
 - `WorkerRuntime` owns deployment, schedules, triggering, pause/resume, and cancellation. Trigger.dev details do not enter WorkerSpec.
 - `ModelProvider` isolates AI SDK/provider APIs. The compiler and runner both have deterministic fake providers for CI/demo operation.
 
@@ -55,7 +55,7 @@ model tool request
   → integration adapter
 ```
 
-There is no model-to-Composio path. Unknown and ungranted capabilities are denied. An approval binds to the hash of a canonical normalized request. A live write is unique by `(run_id, model_tool_call_id)`; a successful result is replayed, while an ambiguous dispatch is marked `OUTCOME_UNKNOWN` and is not blindly retried.
+There is no model-to-provider-MCP or model-to-managed-adapter path. The model can request only stable AgentCloud capability IDs. The adapter validates the registered schema, translates through a fixed allowlist, and ignores unregistered tools discovered from a remote server. Unknown and ungranted capabilities are denied. An approval binds to the hash of a canonical normalized request. A live write is unique by `(run_id, model_tool_call_id)`; a successful result is replayed, while an ambiguous dispatch is marked `OUTCOME_UNKNOWN` and is not blindly retried.
 
 ## Persistence and tenancy
 
@@ -77,4 +77,4 @@ When a policy decision requires approval, the run enters `WAITING_FOR_APPROVAL`,
 
 `DEMO_MODE=true` selects deterministic model, integration, and runtime adapters through the same production interfaces. It provides the complete governed worker lifecycle without vendor credentials. Committed workers, versions, runs, approvals, checkpoints, and audit events use durable local JSON. Open builder sessions use an in-process repository: they can continue across MCP client disconnects while the process remains alive, but they do not survive a process restart. Production never falls back to demo behavior when a credential is absent.
 
-With `DEMO_MODE=false`, builder sessions/proposals and the control plane are PostgreSQL-backed, compilation/execution use the OpenAI adapter, integrations use Composio, and runs use Trigger.dev. Missing configuration fails closed at the relevant boundary. The demo JSON and in-process stores are never imported as production fallbacks.
+With `DEMO_MODE=false`, builder sessions/proposals and the control plane are PostgreSQL-backed, compilation/execution use the OpenAI adapter, integrations route exact capabilities to an official remote MCP connection or managed fallback, and runs use Trigger.dev. Missing configuration or partial tool coverage fails closed at the relevant boundary. The demo JSON and in-process stores are never imported as production fallbacks.

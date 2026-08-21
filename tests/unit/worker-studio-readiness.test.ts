@@ -42,6 +42,17 @@ describe("worker studio readiness", () => {
     expect(readiness.checks.find(({ id }) => id === "connections")?.detail).toContain("Gmail");
   });
 
+  it("blocks deployment when a connected official MCP server covers only some capabilities", () => {
+    const readiness = deriveWorkerStudioReadiness(inboundSalesWorkerSpec(), "READY", [
+      { provider: "gmail", status: "CONNECTED", supportedCapabilities: ["gmail.search_messages", "gmail.read_message"] },
+      { provider: "hubspot", status: "CONNECTED" },
+      { provider: "slack", status: "CONNECTED" },
+    ]);
+    const gmail = readiness.requiredProviders.find(({ provider }) => provider === "gmail");
+    expect(gmail).toMatchObject({ connectionStatus: "PARTIAL", connected: false, missingCapabilities: ["gmail.send_email"] });
+    expect(readiness.readyForDeploy).toBe(false);
+  });
+
   it("treats drafts as needing review and archived workers as blocked", () => {
     const spec = inboundSalesWorkerSpec();
     const connections = [

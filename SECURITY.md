@@ -33,7 +33,7 @@ Email, CRM data, Slack content, and webhook bodies are untrusted data. Runner sy
 
 ## Secrets and logs
 
-Third-party OAuth credentials remain in Composio. Server-only environment variables hold application credentials. A central recursive redactor masks authorization headers, tokens, API keys, secrets, passwords, and cookies before structured logs or audit storage. MCP builder responses omit tenant IDs, internal user IDs, and storage-only message encoding. Builder route and MCP errors use allowlisted typed codes; unknown compiler, database, and vendor errors become generic failures without prompts, payloads, or stack traces.
+Official remote-MCP OAuth tokens, refresh tokens, PKCE verifiers, and discovery state are encrypted at rest with AES-256-GCM. Ciphertext is authenticated against the internal organization, connection, and provider, so it cannot be transplanted across those boundaries. Only the server receives the base64-encoded 256-bit encryption key and OAuth client secrets. Managed-fallback tokens remain with that connection provider. A central recursive redactor masks authorization headers, tokens, API keys, secrets, passwords, and cookies before structured logs or audit storage. MCP builder responses omit tenant IDs, internal user IDs, credentials, and storage-only message encoding. Builder route and MCP errors use allowlisted typed codes; unknown compiler, database, and vendor errors become generic failures without prompts, payloads, or stack traces.
 
 ## Side effects
 

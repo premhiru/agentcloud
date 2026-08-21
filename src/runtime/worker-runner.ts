@@ -34,7 +34,7 @@ export async function runWorker(input: Readonly<{ payload: RunWorkerPayload; spe
     if (!budget.allowed) { await journal.append(payload.runId, { sequence, type: "error", status: "BUDGET_EXCEEDED", summary: budget.reason }); await journal.setStatus(payload.runId, "BUDGET_EXCEEDED"); return { status: "BUDGET_EXCEEDED" }; }
     const capability = getCapability(call.capabilityId);
     if (capability) {
-      const connection = await input.integrations.getConnectionStatus({ organizationId: payload.organizationId, provider: capability.integration });
+      const connection = await input.integrations.getConnectionStatus({ organizationId: payload.organizationId, provider: capability.integration, capabilityId: call.capabilityId });
       if (!connection.connected) { await journal.append(payload.runId, { sequence, type: "error", status: "FAILED", summary: `${capability.integration} connection is required` }); await journal.setStatus(payload.runId, "FAILED"); return { status: "FAILED" }; }
     }
     const execution = await executeGovernedTool({ spec, capabilityId: call.capabilityId, toolInput: call.input, context: { organizationId: payload.organizationId, workerId: payload.workerId, workerVersionId: payload.workerVersionId, runId: payload.runId, modelToolCallId: call.id, mode: payload.mode }, adapter: input.integrations, executions: input.executions });

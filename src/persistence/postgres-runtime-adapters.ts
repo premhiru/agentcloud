@@ -7,6 +7,9 @@ import { getDatabase } from "@/db/client";
 import { approvals, auditEvents, connections, runSteps, runs, toolExecutions } from "@/db/schema";
 import type { IntegrationProvider } from "@/domain/tool-registry";
 import type { ConnectionReference, ConnectionReferenceRepository } from "@/integrations/composio-adapter";
+import { decryptMcpCredentials, encryptMcpCredentials } from "@/integrations/mcp-credential-vault";
+import { callOfficialMcpTool, getOfficialMcpConfiguration, type OfficialMcpOAuthState } from "@/integrations/official-mcp-client";
+import type { RemoteMcpConnection, RemoteMcpConnectionRepository, RemoteMcpGateway } from "@/integrations/remote-mcp-adapter";
 import type { ToolExecutionRecord, ToolExecutionRepository } from "@/runtime/tool-executor";
 import type { RunnerJournal, RunnerStep } from "@/runtime/worker-runner";
 
@@ -14,9 +17,46 @@ export class PostgresConnectionReferenceRepository implements ConnectionReferenc
   constructor(private readonly organizationId: string) {}
   async get(input: Readonly<{ organizationId: string; provider: IntegrationProvider }>): Promise<ConnectionReference | undefined> {
     if (input.organizationId !== this.organizationId) return undefined;
-    const [row] = await getDatabase().select().from(connections).where(and(eq(connections.organizationId, this.organizationId), eq(connections.provider, input.provider))).limit(1);
+    const rows = await getDatabase().select().from(connections).where(and(eq(connections.organizationId, this.organizationId), eq(connections.provider, input.provider)));
+    const row = rows.find((candidate) => candidate.metadataJson.method !== "official_mcp" && candidate.status === "CONNECTED") ?? rows.find((candidate) => candidate.metadataJson.method !== "official_mcp");
     return row ? { organizationId: this.organizationId, provider: row.provider, connectedAccountId: row.externalConnectionId, status: row.status, displayName: row.displayName } : undefined;
   }
+}
+
+export class PostgresRemoteMcpConnectionRepository implements RemoteMcpConnectionRepository {
+  constructor(private readonly organizationId: string) {}
+  async get(input: Readonly<{ organizationId: string; provider: IntegrationProvider }>): Promise<RemoteMcpConnection | undefined> {
+    if (input.organizationId !== this.organizationId) return undefined;
+    const rows = await getDatabase().select().from(connections).where(and(eq(connections.organizationId, this.organizationId), eq(connections.provider, input.provider)));
+    const row = rows.find((candidate) => candidate.metadataJson.method === "official_mcp" && candidate.status === "CONNECTED");
+    const supportedCapabilities = row?.metadataJson.supportedCapabilities;
+    return row && Array.isArray(supportedCapabilities) && supportedCapabilities.every((item) => typeof item === "string")
+      ? { organizationId: this.organizationId, provider: row.provider, connectionId: row.externalConnectionId, status: row.status, displayName: row.displayName, supportedCapabilities }
+      : undefined;
+  }
+}
+
+export function createPostgresRemoteMcpGateway(organizationId: string): RemoteMcpGateway {
+  return {
+    async call(input) {
+      if (input.connection.organizationId !== organizationId) throw new Error("TENANT_ACCESS_DENIED");
+      const db = getDatabase();
+      const [row] = await db.select().from(connections).where(and(eq(connections.organizationId, organizationId), eq(connections.provider, input.connection.provider), eq(connections.externalConnectionId, input.connection.connectionId))).limit(1);
+      if (!row || row.status !== "CONNECTED" || row.metadataJson.method !== "official_mcp" || typeof row.metadataJson.encryptedCredentials !== "string") throw new Error("MCP_CONNECTION_NOT_FOUND");
+      const configuration = getOfficialMcpConfiguration(input.connection.provider).configuration;
+      if (!configuration) throw new Error("MCP_CONNECTION_CONFIGURATION_REQUIRED");
+      const binding = { organizationId, connectionId: row.externalConnectionId, provider: input.connection.provider };
+      let oauthState = decryptMcpCredentials<OfficialMcpOAuthState>(row.metadataJson.encryptedCredentials, binding, configuration.encryptionKey);
+      const persist = async (next: OfficialMcpOAuthState) => {
+        oauthState = next;
+        await db.update(connections).set({ metadataJson: { ...row.metadataJson, encryptedCredentials: encryptMcpCredentials(next, binding, configuration.encryptionKey) }, updatedAt: new Date() }).where(and(eq(connections.organizationId, organizationId), eq(connections.id, row.id)));
+      };
+      const baseUrl = process.env.APP_BASE_URL;
+      if (!baseUrl || !URL.canParse(baseUrl)) throw new Error("APP_BASE_URL_INVALID");
+      const data = await callOfficialMcpTool({ provider: input.connection.provider, callbackUrl: `${baseUrl.replace(/\/$/, "")}/api/integrations/callback?provider=${input.connection.provider}`, csrfState: row.id, oauthState, configuration, persist, toolName: input.toolName, arguments: input.arguments });
+      return { data };
+    },
+  };
 }
 
 export class PostgresToolExecutionRepository implements ToolExecutionRepository {

@@ -36,7 +36,7 @@ export type UiRun = { id: string; organizationId: string; workerId: string; work
 export type UiWorker = { id: string; organizationId: string; name: string; status: "DRAFT" | "READY" | "DEPLOYED" | "PAUSED" | "ARCHIVED"; activeVersionId?: string; versions: UiWorkerVersion[]; createdAt: string; updatedAt: string };
 export type UiApproval = { id: string; organizationId: string; workerId: string; runId: string; capabilityId: string; reason: string; preview: Record<string, unknown>; requestHash: string; status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED"; requestedAt: string; expiresAt: string; decidedAt?: string; comment?: string };
 export type UiAuditEvent = { id: string; organizationId: string; actorType: "user" | "worker" | "system" | "mcp"; actorId: string; action: string; targetType: string; targetId: string; metadata: Record<string, unknown>; createdAt: string };
-export type UiConnection = { provider: "gmail" | "hubspot" | "slack"; status: "CONNECTED" | "EXPIRED" | "REVOKED" | "ERROR"; displayName: string };
+export type UiConnection = { provider: "gmail" | "hubspot" | "slack"; status: "CONNECTED" | "EXPIRED" | "REVOKED" | "ERROR"; displayName: string; methods?: readonly ("official_mcp" | "managed_oauth" | "demo")[]; supportedCapabilities?: readonly string[] };
 type DemoContinuation = { runId: string; checkpoint: RunnerCheckpoint; executions: ToolExecutionRecord[] };
 
 function uiSteps(steps: readonly RunnerStep[], at: string): UiRunStep[] {
@@ -82,7 +82,7 @@ class DemoControlPlaneStore {
 
   listConnections(context: TenantContext): UiConnection[] {
     void context;
-    return ["gmail", "hubspot", "slack"].map((provider) => ({ provider: provider as UiConnection["provider"], status: "CONNECTED", displayName: `Demo ${provider}` }));
+    return ["gmail", "hubspot", "slack"].map((provider) => ({ provider: provider as UiConnection["provider"], status: "CONNECTED", displayName: `Demo ${provider}`, methods: ["demo"], supportedCapabilities: ["gmail.search_messages", "gmail.read_message", "gmail.send_email", "hubspot.search_contacts", "hubspot.get_contact", "hubspot.upsert_contact", "hubspot.create_note", "slack.list_channels", "slack.post_message"].filter((capability) => capability.startsWith(`${provider}.`)) }));
   }
 
   listWorkers(context: TenantContext): UiWorker[] {
