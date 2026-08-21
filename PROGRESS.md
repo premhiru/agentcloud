@@ -255,6 +255,8 @@ Connection acquisition is contextual: every missing or partial WorkerSpec capabi
 
 Verified locally: remote adapter/routing, tenant isolation, unknown-tool denial, capability mapping, dry-run write suppression, encrypted-credential binding, safe return-path validation, and partial-coverage readiness tests pass. Real provider OAuth and tool calls remain credential-dependent checks and are not claimed as verified.
 
+Local authenticated builder recovery: `next dev` now selects the deterministic compiler when no OpenAI credential exists and visibly labels the proposal as a local fixture. This removes the generic builder-start failure for developers who have configured Clerk/PostgreSQL but not a vendor model. The selector is deliberately restricted to `NODE_ENV=development`; production and tests never gain an implicit fake-model fallback. The signed-in browser flow was verified from the preserved objective through a persisted proposal workspace.
+
 Next: provision operator credentials for the production runtime, verify OAuth from a real MCP host, then run the guarded Registry publication workflow. No credential-independent launch work remains.
 
 ### Clerk authentication and open-source licensing

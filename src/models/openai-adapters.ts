@@ -4,7 +4,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
-import { modelProposalSchema, type CompilerModel } from "@/application/compiler/compiler";
+import { FakeCompilerModel, modelProposalSchema, type CompilerModel } from "@/application/compiler/compiler";
+import { shouldUseLocalFakeModels } from "@/models/model-mode";
 import type { WorkerModel } from "@/runtime/worker-runner";
 
 function model() {
@@ -23,6 +24,10 @@ export class OpenAICompilerModel implements CompilerModel {
     });
     return result.output;
   }
+}
+
+export function createCompilerModel(): CompilerModel {
+  return shouldUseLocalFakeModels() ? new FakeCompilerModel() : new OpenAICompilerModel();
 }
 
 const planSchema = z.object({

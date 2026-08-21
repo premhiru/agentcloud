@@ -13,7 +13,7 @@ import { approvals, auditEvents, connections, runs, runSteps, runtimeDeployments
 import { resolveTenantIds, type TenantIds } from "@/lib/auth/tenant-ids";
 import type { TenantContext } from "@/lib/auth/tenant-context";
 import { requireOwner } from "@/lib/auth/tenant-context";
-import { OpenAICompilerModel } from "@/models/openai-adapters";
+import { createCompilerModel } from "@/models/openai-adapters";
 import { TriggerDevRuntime } from "@/runtime/trigger-dev-runtime";
 import type { RuntimeDeployment } from "@/runtime/types";
 
@@ -50,7 +50,7 @@ export class PostgresControlPlaneStore {
   async createWorker(context: TenantContext, objective: string): Promise<UiWorker> {
     const tenant = await this.tenant(context); const db = getDatabase();
     const connectedRows = await db.select({ provider: connections.provider }).from(connections).where(and(eq(connections.organizationId, tenant.organizationId), eq(connections.status, "CONNECTED")));
-    const compilation = await compileWorker({ objective, connectedIntegrations: connectedRows.map((row) => row.provider) }, new OpenAICompilerModel());
+    const compilation = await compileWorker({ objective, connectedIntegrations: connectedRows.map((row) => row.provider) }, createCompilerModel());
     const created = await db.transaction(async (tx) => {
       const [worker] = await tx.insert(workers).values({ organizationId: tenant.organizationId, name: compilation.spec.identity.name, status: "READY", createdBy: tenant.userId }).returning();
       if (!worker) throw new Error("WORKER_CREATE_FAILED");
@@ -66,7 +66,7 @@ export class PostgresControlPlaneStore {
     const tenant = await this.tenant(context); const db = getDatabase(); const [worker] = await db.select().from(workers).where(and(eq(workers.organizationId, tenant.organizationId), eq(workers.id, workerId))).limit(1);
     if (!worker) throw new Error("WORKER_NOT_FOUND"); if (worker.status === "ARCHIVED") throw new Error("WORKER_ARCHIVED");
     const connectedRows = await db.select({ provider: connections.provider }).from(connections).where(and(eq(connections.organizationId, tenant.organizationId), eq(connections.status, "CONNECTED")));
-    const compilation = await compileWorker({ objective, connectedIntegrations: connectedRows.map((row) => row.provider) }, new OpenAICompilerModel());
+    const compilation = await compileWorker({ objective, connectedIntegrations: connectedRows.map((row) => row.provider) }, createCompilerModel());
     const existing = await this.versions(tenant.organizationId, workerId); const versionNumber = (existing.at(-1)?.versionNumber ?? 0) + 1;
     const [version] = await db.insert(workerVersions).values({ organizationId: tenant.organizationId, workerId, versionNumber, specJson: compilation.spec, specHash: hashWorkerSpec(compilation.spec), createdBy: tenant.userId }).returning();
     if (!version) throw new Error("WORKER_VERSION_CREATE_FAILED");

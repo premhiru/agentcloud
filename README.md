@@ -16,6 +16,8 @@
 > [!TIP]
 > The repository's demo mode is deterministic and credential-free. It uses fake model, Gmail, HubSpot, Slack, and runtime adapters while exercising the same policy, approval, idempotency, and application boundaries as production. The public guided demo is a device-local browser simulation; both persistence boundaries are documented below.
 
+When running the authenticated app under `next dev` without `OPENAI_API_KEY`, AgentCloud uses the deterministic compiler only for local proposal design and labels that mode in the UI. This development convenience never activates in production or tests; production continues to fail closed when the model credential is absent.
+
 ## What AgentCloud does
 
 Most agent demos end when the chat closes. AgentCloud treats an AI worker as a durable, governed software artifact:

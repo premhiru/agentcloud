@@ -11,7 +11,7 @@ import { connections } from "@/db/schema";
 import type { IntegrationProvider } from "@/domain/tool-registry";
 import { isDemoMode, type TenantContext } from "@/lib/auth/tenant-context";
 import { resolveTenantIds } from "@/lib/auth/tenant-ids";
-import { OpenAICompilerModel } from "@/models/openai-adapters";
+import { createCompilerModel } from "@/models/openai-adapters";
 import { PostgresBuilderProposalCommitter } from "@/persistence/postgres-builder-committer";
 import { PostgresBuilderSessionRepository } from "@/persistence/postgres-builder-repository";
 
@@ -44,7 +44,7 @@ export async function getBuilderApplication(context: TenantContext): Promise<Bui
   const repository = new PostgresBuilderSessionRepository(database);
   const service = new BuilderService(
     repository,
-    new OpenAICompilerModel(),
+    createCompilerModel(),
     async (organizationId) => {
       const rows = await database
         .select({ provider: connections.provider })
